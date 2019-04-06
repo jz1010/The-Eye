@@ -11,9 +11,12 @@ import RPi.GPIO as GPIO
 from svg.path import Path, parse_path
 from xml.dom.minidom import parse
 from gfxutil import *
+import argparse
+
+DISPLAY = pi3d.Display.create(samples=4)
 
 class gecko_eye_t(object):
-    def __init__(self,debug=False):
+    def __init__(self,debug=False,EYE_SELECT=None):
         self.debug = debug
         self.cfg_db = {
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
@@ -60,7 +63,10 @@ class gecko_eye_t(object):
 		 }           
         }
 
-        self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
+        if EYE_SELECT is not None:
+            self.EYE_SELECT = EYE_SELECT
+        else:
+            self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
         
         #self.EYE_SELECT = 'cyclops'
         #self.EYE_SELECT = 'dragon'
@@ -71,13 +77,15 @@ class gecko_eye_t(object):
         GPIO.setmode(GPIO.BCM)
         if self.cfg_db['BLINK_PIN'] >= 0: GPIO.setup(self.cfg_db['BLINK_PIN'], GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-        
+        self.init()
+
+    def init(self):
         self.init_svg()
         self.init_display()
         self.load_textures()
         self.init_geometry()
         self.init_globals()
-
+        
     def init_svg(self):
         # Load SVG file, extract paths & convert to point lists --------------------
 
@@ -85,22 +93,23 @@ class gecko_eye_t(object):
         # Iris & pupil have been scaled down slightly in this version to compensate
         # for how the WorldEye distorts things...looks OK on WorldEye now but might
         # seem small and silly if used with the regular OLED/TFT code.
-        self.dom               = parse(self.cfg_db[self.EYE_SELECT]['eye.shape'])        
-        self.vb                = getViewBox(self.dom)
-        self.pupilMinPts       = getPoints(self.dom, "pupilMin"      , 32, True , True )
-        self.pupilMaxPts       = getPoints(self.dom, "pupilMax"      , 32, True , True )
-        self.irisPts           = getPoints(self.dom, "iris"          , 32, True , True )
-        self.scleraFrontPts    = getPoints(self.dom, "scleraFront"   ,  0, False, False)
-        self.scleraBackPts     = getPoints(self.dom, "scleraBack"    ,  0, False, False)
-        self.upperLidClosedPts = getPoints(self.dom, "upperLidClosed", 33, False, True )
-        self.upperLidOpenPts   = getPoints(self.dom, "upperLidOpen"  , 33, False, True )
-        self.upperLidEdgePts   = getPoints(self.dom, "upperLidEdge"  , 33, False, False)
-        self.lowerLidClosedPts = getPoints(self.dom, "lowerLidClosed", 33, False, False)
-        self.lowerLidOpenPts   = getPoints(self.dom, "lowerLidOpen"  , 33, False, False)
-        self.lowerLidEdgePts   = getPoints(self.dom, "lowerLidEdge"  , 33, False, False)
+        dom                    = parse(self.cfg_db[self.EYE_SELECT]['eye.shape'])        
+        self.vb                = getViewBox(dom)
+        self.pupilMinPts       = getPoints(dom, "pupilMin"      , 32, True , True )
+        self.pupilMaxPts       = getPoints(dom, "pupilMax"      , 32, True , True )
+        self.irisPts           = getPoints(dom, "iris"          , 32, True , True )
+        self.scleraFrontPts    = getPoints(dom, "scleraFront"   ,  0, False, False)
+        self.scleraBackPts     = getPoints(dom, "scleraBack"    ,  0, False, False)
+        self.upperLidClosedPts = getPoints(dom, "upperLidClosed", 33, False, True )
+        self.upperLidOpenPts   = getPoints(dom, "upperLidOpen"  , 33, False, True )
+        self.upperLidEdgePts   = getPoints(dom, "upperLidEdge"  , 33, False, False)
+        self.lowerLidClosedPts = getPoints(dom, "lowerLidClosed", 33, False, False)
+        self.lowerLidOpenPts   = getPoints(dom, "lowerLidOpen"  , 33, False, False)
+        self.lowerLidEdgePts   = getPoints(dom, "lowerLidEdge"  , 33, False, False)
 
     def init_display(self):
-        self.DISPLAY = pi3d.Display.create(samples=4)
+        global DISPLAY
+        self.DISPLAY = DISPLAY
         self.DISPLAY.set_background(0, 0, 0, 1) # r,g,b,alpha
 
         # eyeRadius is the size, in pixels, at which the whole eye will be rendered.
@@ -222,8 +231,8 @@ class gecko_eye_t(object):
     def init_globals(self):
         # Init global stuff --------------------------------------------------------
 
-        #self.mykeys = pi3d.Keyboard() # For capturing key presses
-        self.mykeys = None
+        self.mykeys = pi3d.Keyboard() # For capturing key presses
+        #self.mykeys = None
         
         self.startX       = random.uniform(-30.0, 30.0)
         n = math.sqrt(900.0 - self.startX * self.startX)
@@ -434,7 +443,6 @@ class gecko_eye_t(object):
             self.rlRegen = False
 
 	# Draw eye
-
 	self.iris.rotateToX(self.curY)
 	self.iris.rotateToY(self.curX)
 	self.iris.draw()
@@ -444,13 +452,16 @@ class gecko_eye_t(object):
         self.upperEyelid.draw()
         self.lowerEyelid.draw()
 
+    def keyboard(self):
         if self.mykeys is not None:
             k = self.mykeys.read()
             if k==27:
                 self.mykeys.close()
-                self.DISPLAY.stop()
-                exit(0)
-                        
+                #self.DISPLAY.stop()
+                #self.DISPLAY.destroy()
+                return True
+        return False
+        
     def run(self):
         while True:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
@@ -471,8 +482,17 @@ class gecko_eye_t(object):
 		v = random.random()
 		self.split(self.currentPupilScale, v, 4.0, 1.0)
             self.currentPupilScale = v
-        
+            do_exit = self.keyboard()
+            if do_exit:
+                break
+
 if __name__ == "__main__":
     gecko_eye = gecko_eye_t()
     gecko_eye.run()
+    cnt = 0
+    while cnt < 3:
+        profile = random.choice(['cyclops','dragon','hack'])
+        gecko_eye = gecko_eye_t(EYE_SELECT=profile)
+        gecko_eye.run()
+        cnt += 1
     
