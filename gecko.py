@@ -19,6 +19,51 @@ DISPLAY = pi3d.Display.create(samples=4)
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
         self.debug = debug
+        self.init_cfg_db()
+        self.EYE_SELECT = None
+        if EYE_SELECT is not None:
+            self.EYE_SELECT = EYE_SELECT
+        elif self.EYE_SELECT is None:
+            self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
+        
+        self.parse_args()
+        
+        # GPIO initialization ------------------------------------------------------
+        
+        GPIO.setmode(GPIO.BCM)
+        if self.cfg_db['BLINK_PIN'] >= 0: GPIO.setup(self.cfg_db['BLINK_PIN'], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+        self.init()
+
+    def parse_args(self):
+        self.parser = argparse.ArgumentParser(description="Parse arguments")
+        self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
+                                 action='store',help='Autoblink of eyelid')
+        self.parser.add_argument('--eye_select',default=self.EYE_SELECT,
+                                 action='store',help='Eye profile selection')
+        self.parser.add_argument('--eye_shape',default=self.cfg_db[self.EYE_SELECT]['eye.shape'],
+                                 action='store',help='Eye shape art file (.svg)')
+        self.parser.add_argument('--iris_art',default=self.cfg_db[self.EYE_SELECT]['iris.art'],        
+                                 action='store',help='Iris art file (.jpg)')
+        self.parser.add_argument('--lid_art',default=self.cfg_db[self.EYE_SELECT]['lid.art'],        
+                                 action='store',help='Lid art file (.png)')
+        self.parser.add_argument('--sclera_art',default=self.cfg_db[self.EYE_SELECT]['sclera.art'],        
+                                 action='store',help='Sclera art file (.png)')
+        args = self.parser.parse_args()
+        
+        self.cfg_db['AUTOBLINK'] = (int(args.autoblink) != 0)
+        self.EYE_SELECT = args.eye_select
+
+        if args.eye_shape not in ["None"]:
+            self.cfg_db[self.EYE_SELECT]['eye.shape'] = args.eye_shape
+        if args.iris_art not in ["None"]:
+            self.cfg_db[self.EYE_SELECT]['iris.art'] = args.iris_art
+        if args.lid_art not in ["None"]:            
+            self.cfg_db[self.EYE_SELECT]['lid.art'] = args.lid_art
+        if args.sclera_art not in ["None"]:                        
+            self.cfg_db[self.EYE_SELECT]['sclera.art'] = args.sclera_art
+        
+    def init_cfg_db(self):
         self.cfg_db = {
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
             'JOYSTICK_Y_IN': -1,    # Analog input for eye vert position (")
@@ -63,23 +108,7 @@ class gecko_eye_t(object):
                 'sclera.art': 'hack_graphics/Ds4CWFgV4AAlhWK.jpg_large.jpg',                
 		 }           
         }
-
-        if EYE_SELECT is not None:
-            self.EYE_SELECT = EYE_SELECT
-        else:
-            self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
         
-        #self.EYE_SELECT = 'cyclops'
-        #self.EYE_SELECT = 'dragon'
-        #self.EYE_SELECT = 'hack'        
-
-        # GPIO initialization ------------------------------------------------------
-        
-        GPIO.setmode(GPIO.BCM)
-        if self.cfg_db['BLINK_PIN'] >= 0: GPIO.setup(self.cfg_db['BLINK_PIN'], GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
-        self.init()
-
     def init(self):
         self.init_svg()
         self.init_display()
