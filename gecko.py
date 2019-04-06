@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import sys
 import Adafruit_ADS1x15
 import math
 import pi3d
@@ -147,6 +148,39 @@ class gecko_eye_t(object):
         #uvMap     = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
         #              filter=pi3d.GL_LINEAR, blend=False, m_repeat=True)
 
+    def init_geometry_iris(self):
+        # Generate initial iris mesh; vertex elements will get replaced on
+        # a per-frame basis in the main loop, this just sets up textures, etc.
+        self.iris = meshInit(32, 4, True, 0, 0.5/self.irisMap.iy, False)
+        self.iris.set_textures([self.irisMap])
+        self.iris.set_shader(self.shader)
+        self.irisZ = zangle(self.irisPts, self.eyeRadius)[0] * 0.99 # Get iris Z depth, for later
+
+    def init_geometry_eyelids(self):
+        # Eyelid meshes are likewise temporary; texture coordinates are
+        # assigned here but geometry is dynamically regenerated in main loop.
+        self.upperEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
+        self.upperEyelid.set_textures([self.lidMap])
+        self.upperEyelid.set_shader(self.shader)
+        self.lowerEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
+        self.lowerEyelid.set_textures([self.lidMap])
+        self.lowerEyelid.set_shader(self.shader)
+
+    def init_geometry_sclera(self):
+        # Generate sclera for eye...start with a 2D shape for lathing...
+        angle1 = zangle(self.scleraFrontPts, self.eyeRadius)[1] # Sclera front angle
+        angle2 = zangle(self.scleraBackPts , self.eyeRadius)[1] # " back angle
+        aRange = 180 - angle1 - angle2
+        pts    = []
+        for i in range(24):
+            ca, sa = pi3d.Utility.from_polar((90 - angle1) - aRange * i / 23)
+            pts.append((ca * self.eyeRadius, sa * self.eyeRadius))
+
+        self.eye = pi3d.Lathe(path=pts, sides=64)
+        self.eye.set_textures([self.scleraMap])
+        self.eye.set_shader(self.shader)
+        reAxis(self.eye, 0.0)
+        
     def init_geometry(self):
         # Initialize static geometry -----------------------------------------------
 
@@ -198,35 +232,9 @@ class gecko_eye_t(object):
         d  = dx * dx + dy * dy
         if d > 0: self.lowerLidRegenThreshold = 0.5 / math.sqrt(d)
 
-        # Generate initial iris mesh; vertex elements will get replaced on
-        # a per-frame basis in the main loop, this just sets up textures, etc.
-        self.iris = meshInit(32, 4, True, 0, 0.5/self.irisMap.iy, False)
-        self.iris.set_textures([self.irisMap])
-        self.iris.set_shader(self.shader)
-        self.irisZ = zangle(self.irisPts, self.eyeRadius)[0] * 0.99 # Get iris Z depth, for later
-
-        # Eyelid meshes are likewise temporary; texture coordinates are
-        # assigned here but geometry is dynamically regenerated in main loop.
-        self.upperEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
-        self.upperEyelid.set_textures([self.lidMap])
-        self.upperEyelid.set_shader(self.shader)
-        self.lowerEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
-        self.lowerEyelid.set_textures([self.lidMap])
-        self.lowerEyelid.set_shader(self.shader)
-
-        # Generate sclera for eye...start with a 2D shape for lathing...
-        angle1 = zangle(self.scleraFrontPts, self.eyeRadius)[1] # Sclera front angle
-        angle2 = zangle(self.scleraBackPts , self.eyeRadius)[1] # " back angle
-        aRange = 180 - angle1 - angle2
-        pts    = []
-        for i in range(24):
-            ca, sa = pi3d.Utility.from_polar((90 - angle1) - aRange * i / 23)
-            pts.append((ca * self.eyeRadius, sa * self.eyeRadius))
-
-        self.eye = pi3d.Lathe(path=pts, sides=64)
-        self.eye.set_textures([self.scleraMap])
-        self.eye.set_shader(self.shader)
-        reAxis(self.eye, 0.0)
+        self.init_geometry_iris()
+        self.init_geometry_eyelids()
+        self.init_geometry_sclera()
 
     def init_globals(self):
         # Init global stuff --------------------------------------------------------
@@ -486,9 +494,15 @@ class gecko_eye_t(object):
             if do_exit:
                 break
 
+    def shutdown(self):
+        self.DISPLAY.destroy()
+        
 if __name__ == "__main__":
     gecko_eye = gecko_eye_t()
     gecko_eye.run()
+    gecko_eye.shutdown()
+    sys.exit(0)
+    
     cnt = 0
     while cnt < 3:
         profile = random.choice(['cyclops','dragon','hack'])
