@@ -117,10 +117,14 @@ class gecko_eye_t(object):
         self.init_geometry()
         self.init_globals()
         self.init_joystick()
-        self.event_blink = 1
         
     def init_joystick(self):
         self.joystick = joystick_t()
+        self.joystick_polls = 0
+        
+        # Set up state kept from events sampled from joystick
+        self.event_blink = 1
+        self.update_eye_events(reset=True)
         
     def init_svg(self):
         # Load SVG file, extract paths & convert to point lists --------------------
@@ -339,6 +343,7 @@ class gecko_eye_t(object):
 			if   v < self.cfg_db['PUPIL_MIN']: v = self.cfg_db['PUPIL_MIN']
 			elif v > self.cfg_db['PUPIL_MAX']: v = self.cfg_db['PUPIL_MAX']
 			self.frame(v) # Draw frame w/interim pupil scale value
+                        self.do_joystick()
 
     # Generate one frame of imagery
     def frame(self,p):
@@ -376,7 +381,31 @@ class gecko_eye_t(object):
                     self.holdDuration = random.uniform(0.15, 1.7)
                     self.startTime    = now
                     self.isMoving     = False
-            else:
+            elif self.event_eye_queued:
+                if self.event_eye_up:
+                    self.destX = 0.0
+                    n = math.sqrt(900.0 - self.destX * self.destX)
+                    self.destY = n
+                elif self.event_eye_down:
+                    self.destX = 0.0                    
+                    n = math.sqrt(900.0 - self.destX * self.destX)
+                    self.destY = -n
+                elif self.event_eye_left:
+                    self.destX = 30.0
+                    self.destY = 0.0
+                elif self.event_eye_right:
+                    self.destX = -30.0
+                    self.destY = 0.0
+                elif self.event_eye_center:
+                    self.destX = 0.0
+                    self.destY = 0.0
+                else:
+                    raise
+                self.moveDuration = 0.12
+                self.startTime    = now
+                self.isMoving     = True
+                self.update_eye_events(reset=True)
+            elif False:
                 if dt >= self.holdDuration:
                     self.destX        = random.uniform(-30.0, 30.0)
                     n            = math.sqrt(900.0 - self.destX * self.destX)
@@ -504,26 +533,65 @@ class gecko_eye_t(object):
                 return True
         return False
 
+    def update_eye_events(self,reset=False):
+        if reset:
+            self.event_eye_up = False
+            self.event_eye_down = False
+            self.event_eye_left = False
+            self.event_eye_right = False
+            self.event_eye_center = False
+            self.event_eye_queued = False
+            self.eye_event_last = None
+            
+        self.event_eye_joystick = self.event_eye_up or \
+                                  self.event_eye_down or \
+                                  self.event_eye_left or \
+                                  self.event_eye_right or \
+                                  self.event_eye_center
+
+    def set_eye_event(self,eye_event):
+        if self.event_eye_queued:
+            return
+
+        if eye_event is self.eye_event_last:
+            return
+        
+        if eye_event in ['eye_up']:
+            self.event_eye_up = True
+        elif eye_event in ['eye_down']:
+            self.event_eye_down = True                
+        elif eye_event in ['eye_left']:
+            self.event_eye_left = True
+        elif eye_event in ['eye_right']:
+            self.event_eye_right = True
+        elif eye_event in ['eye_center']:
+            self.event_eye_center = True
+
+        self.event_eye_queued = True
+        self.eye_event_last = eye_event
+        
     def handle_events(self,events):
         if len(events) == 0:
             return
-
+        
         for event in events:
-            if event in ['eye_up']:
-                pass
-            elif event in ['eye_down']:
-                pass
-            elif event in ['eye_left']:
-                pass
-            elif event in ['eye_right']:
-                pass
+            print ('event: {}'.format(event))
+            if event in ['eye_up','eye_down','eye_left','eye_right','eye_center']:
+                self.set_eye_event(event)
             elif event in ['blink']:
                 self.event_blink ^= 1
-                pass
             else:
                 print ('Unhandled event: {}'.format(event))
                 raise
-        
+        self.update_eye_events()
+
+    def do_joystick(self):
+        gecko_events = self.joystick.sample_nonblocking()
+        self.handle_events(gecko_events)
+        self.joystick_polls +=1
+
+        print ('joystick_polls: {}'.format(self.joystick_polls))
+
     def run(self):
         while True:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
@@ -543,9 +611,8 @@ class gecko_eye_t(object):
             else: # Fractal auto pupil scale
 		v = random.random()
 		self.split(self.currentPupilScale, v, 4.0, 1.0)
+
             self.currentPupilScale = v
-            gecko_events = self.joystick.sample_nonblocking()
-            self.handle_events(gecko_events)
             do_exit = self.keyboard_sample()
             if do_exit:
                 break

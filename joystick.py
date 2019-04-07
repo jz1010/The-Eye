@@ -57,19 +57,29 @@ class joystick_t(object):
                 #print ('button: {} state: {}'.format(button_name,button_val))
                 if button_name in ['trigger']:
                     gecko_events.append('blink')
+                elif button_name in ['2']:
+                    gecko_events.append('eye_center')
+                else:
+                    pass
             elif event.type in [ecodes.EV_ABS]: # stick handle
+                total_range = 1024
+                t_lo = total_range / 4
+                t_hi = total_range / 4 * 3
+                if self.debug:
+                    #print ('analog value: {}'.format(event.value))
+                    pass
+                    
                 if event.code in [0]: # stick left/right
                     #print ('ABS_0: {}'.format(event))
-                    value_range = 255
-                    if event.value >= 0 and event.value < 512: # forward
+                    if event.value >= 0 and event.value < t_lo: # left
                         gecko_events.append('eye_left')
-                    elif event.value >= 512 and event.value <= 1024:
+                    elif event.value >= t_hi and event.value <= total_range: # right
                         gecko_events.append('eye_right')
                 elif event.code in [1]: # stick forward/back
                     #print ('ABS_1: {}'.format(event))
-                    if event.value >= 0 and event.value < 512: # forward
+                    if event.value >= 0 and event.value < t_lo: # forward
                         gecko_events.append('eye_up')
-                    elif event.value >= 512 and event.value <= 1024:
+                    elif event.value >= t_hi and event.value <= total_range: # back
                         gecko_events.append('eye_down')
                 elif event.code in [5]: # stick twist
                     #print ('ABS_5: {}'.format(event))                                  
@@ -108,6 +118,8 @@ class joystick_t(object):
         pass
         
 if __name__ in "__main__":
-    joystick = joystick_t()
+    joystick = joystick_t(debug=True)
     while True:
-        joystick.sample_nonblocking()
+        gecko_events = joystick.sample_nonblocking()
+        for event in gecko_events:
+            print ('event: {}'.format(event))
