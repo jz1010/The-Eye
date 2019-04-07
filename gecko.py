@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 import os
 import sys
@@ -13,6 +13,7 @@ from svg.path import Path, parse_path
 from xml.dom.minidom import parse
 from gfxutil import *
 import argparse
+from joystick import joystick_t
 
 DISPLAY = pi3d.Display.create(samples=4)
 
@@ -115,6 +116,11 @@ class gecko_eye_t(object):
         self.load_textures()
         self.init_geometry()
         self.init_globals()
+        self.init_joystick()
+        self.event_blink = 1
+        
+    def init_joystick(self):
+        self.joystick = joystick_t()
         
     def init_svg(self):
         # Load SVG file, extract paths & convert to point lists --------------------
@@ -268,8 +274,8 @@ class gecko_eye_t(object):
     def init_globals(self):
         # Init global stuff --------------------------------------------------------
 
-        self.mykeys = pi3d.Keyboard() # For capturing key presses
-        #self.mykeys = None
+        #self.mykeys = pi3d.Keyboard() # For capturing key presses
+        self.mykeys = None
         
         self.startX       = random.uniform(-30.0, 30.0)
         n = math.sqrt(900.0 - self.startX * self.startX)
@@ -409,8 +415,7 @@ class gecko_eye_t(object):
 		if (now - self.blinkStartTime) >= self.blinkDuration:
 			# Yes...increment blink state, unless...
 			if (self.blinkState == 1 and # Enblinking and...
-			    (self.cfg_db['BLINK_PIN'] >= 0 and    # blink pin held
-			     GPIO.input(self.cfg_db['BLINK_PIN']) == GPIO.LOW)):
+                            self.event_blink == 0):
 				# Don't advance yet; eye is held closed
 				pass
 			else:
@@ -421,7 +426,7 @@ class gecko_eye_t(object):
 					self.blinkDuration *= 2.0
 					self.blinkStartTime = now
 	else:
-            if self.cfg_db['BLINK_PIN'] >= 0 and GPIO.input(self.cfg_db['BLINK_PIN']) == GPIO.LOW:
+            if self.event_blink == 0:
                 self.blinkState     = 1 # ENBLINK
                 self.blinkStartTime = now
                 self.blinkDuration  = random.uniform(0.035, 0.06)
@@ -489,7 +494,7 @@ class gecko_eye_t(object):
         self.upperEyelid.draw()
         self.lowerEyelid.draw()
 
-    def keyboard(self):
+    def keyboard_sample(self):
         if self.mykeys is not None:
             k = self.mykeys.read()
             if k==27:
@@ -498,6 +503,26 @@ class gecko_eye_t(object):
                 #self.DISPLAY.destroy()
                 return True
         return False
+
+    def handle_events(self,events):
+        if len(events) == 0:
+            return
+
+        for event in events:
+            if event in ['eye_up']:
+                pass
+            elif event in ['eye_down']:
+                pass
+            elif event in ['eye_left']:
+                pass
+            elif event in ['eye_right']:
+                pass
+            elif event in ['blink']:
+                self.event_blink ^= 1
+                pass
+            else:
+                print ('Unhandled event: {}'.format(event))
+                raise
         
     def run(self):
         while True:
@@ -514,16 +539,19 @@ class gecko_eye_t(object):
 		if self.cfg_db['PUPIL_SMOOTH'] > 0:
 			v = ((currentPupilScale * (self.cfg_db['PUPIL_SMOOTH'] - 1) + v) /
 			     self.cfg_db['PUPIL_SMOOTH'])
-		frame(v)
+                self.frame(v)
             else: # Fractal auto pupil scale
 		v = random.random()
 		self.split(self.currentPupilScale, v, 4.0, 1.0)
             self.currentPupilScale = v
-            do_exit = self.keyboard()
+            gecko_events = self.joystick.sample_nonblocking()
+            self.handle_events(gecko_events)
+            do_exit = self.keyboard_sample()
             if do_exit:
                 break
 
     def shutdown(self):
+        self.joystick.shutdown()
         self.DISPLAY.destroy()
         
 if __name__ == "__main__":

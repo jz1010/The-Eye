@@ -31,7 +31,8 @@ CMD="python ./gecko.py \
      $* \
      "
 #bash -c "${CMD} > >(tee ${LOG_OUT}) 2> >(tee ${LOG_ERR} >&2)"
-bash -c "${CMD} > >(tee ${LOG_OUT})"
+#bash -c "${CMD} > >(tee ${LOG_OUT})"
+bash -c "${CMD}"
 
 #PID=$!
 #sudo kill -9 ${PID}
