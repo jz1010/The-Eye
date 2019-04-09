@@ -53,7 +53,8 @@ class gecko_eye_t(object):
         args = self.parser.parse_args()
         
         self.cfg_db['AUTOBLINK'] = (int(args.autoblink) != 0)
-        self.EYE_SELECT = args.eye_select
+        if self.EYE_SELECT is None:
+            self.EYE_SELECT = args.eye_select
 
         if args.eye_shape not in ["None"]:
             self.cfg_db[self.EYE_SELECT]['eye.shape'] = args.eye_shape
@@ -340,6 +341,7 @@ class gecko_eye_t(object):
 			dt = time.time() - startTime
 			if dt >= duration: break
                         if self.pupil_event_queued: break
+                        if self.eye_context_next is not None: break                        
 			v = startValue + dv * dt / duration
 			if   v < self.cfg_db['PUPIL_MIN']: v = self.cfg_db['PUPIL_MIN']
 			elif v > self.cfg_db['PUPIL_MAX']: v = self.cfg_db['PUPIL_MAX']
@@ -536,6 +538,7 @@ class gecko_eye_t(object):
 
     def update_eye_events(self,reset=False):
         if reset:
+            self.eye_context_next = None
             self.event_eye_up = False
             self.event_eye_down = False
             self.event_eye_left = False
@@ -587,6 +590,12 @@ class gecko_eye_t(object):
                     self.pupil_event_queued = True
             elif event in ['blink']:
                 self.event_blink ^= 1
+            elif event in ['eye_context_9']:
+                self.eye_context_next = 'dragon'
+            elif event in ['eye_context_11']:
+                self.eye_context_next = 'cyclops'
+            elif event in ['eye_context_12']:
+                self.eye_context_next = 'hack'                
             else:
                 print ('Unhandled event: {}'.format(event))
                 raise
@@ -617,7 +626,9 @@ class gecko_eye_t(object):
 			     self.cfg_db['PUPIL_SMOOTH'])
                 self.frame(v)
             else: # Fractal auto pupil scale
-                if self.pupil_event_queued:
+                if self.eye_context_next is not None:
+                    break
+                elif self.pupil_event_queued:
                     self.pupil_event_queued = False
                     self.eye_event_last = self.event_pupil
                     if self.event_pupil in ['pupil_widen']:
@@ -637,20 +648,20 @@ class gecko_eye_t(object):
             if do_exit:
                 break
 
+        return self.eye_context_next
+
     def shutdown(self):
-        self.joystick.shutdown()
-        self.DISPLAY.destroy()
+        pass
+        #self.joystick.shutdown()
+        #self.DISPLAY.destroy()
         
 if __name__ == "__main__":
-    gecko_eye = gecko_eye_t()
-    gecko_eye.run()
-    gecko_eye.shutdown()
+    eye_context = 'dragon'
+    while True:
+        gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
+        eye_context = gecko_eye.run()
+        gecko_eye.shutdown()
+        if eye_context is None:
+            break
+        
     sys.exit(0)
-    
-    cnt = 0
-    while cnt < 3:
-        profile = random.choice(['cyclops','dragon','hack'])
-        gecko_eye = gecko_eye_t(EYE_SELECT=profile)
-        gecko_eye.run()
-        cnt += 1
-    

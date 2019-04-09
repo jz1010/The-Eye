@@ -59,6 +59,12 @@ class joystick_t(object):
                     gecko_events.append('blink')
                 elif button_name in ['2']:
                     gecko_events.append('eye_center')
+                elif button_name in ['9']:
+                    gecko_events.append('eye_context_9')                    
+                elif button_name in ['11']:
+                    gecko_events.append('eye_context_11')                    
+                elif button_name in ['12']:
+                    gecko_events.append('eye_context_12')
                 else:
                     pass
             elif event.type in [ecodes.EV_ABS]: # stick handle
