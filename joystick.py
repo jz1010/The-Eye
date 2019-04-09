@@ -86,11 +86,11 @@ class joystick_t(object):
                     pass
                 elif event.code in [17]: # Hat forward/back
                     if event.value in [-1]: # hat forward
-                        pass
+                        gecko_events.append('pupil_widen')
                     elif event.value in [0]: # hat middle
                         pass
                     elif event.value in [1]: # hat back
-                        pass
+                        gecko_events.append('pupil_narrow')                        
                     else:
                         raise
                 elif event.code in [16]: # Hat left/right

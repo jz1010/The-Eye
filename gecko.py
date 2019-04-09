@@ -339,6 +339,7 @@ class gecko_eye_t(object):
 		while True:
 			dt = time.time() - startTime
 			if dt >= duration: break
+                        if self.pupil_event_queued: break
 			v = startValue + dv * dt / duration
 			if   v < self.cfg_db['PUPIL_MIN']: v = self.cfg_db['PUPIL_MIN']
 			elif v > self.cfg_db['PUPIL_MAX']: v = self.cfg_db['PUPIL_MAX']
@@ -542,6 +543,8 @@ class gecko_eye_t(object):
             self.event_eye_center = False
             self.event_eye_queued = False
             self.eye_event_last = None
+            self.pupil_event_queued = False
+            self.pupil_event_last = None
             
         self.event_eye_joystick = self.event_eye_up or \
                                   self.event_eye_down or \
@@ -578,6 +581,10 @@ class gecko_eye_t(object):
             print ('event: {}'.format(event))
             if event in ['eye_up','eye_down','eye_left','eye_right','eye_center']:
                 self.set_eye_event(event)
+            elif event in ['pupil_widen','pupil_narrow']:
+                if not self.pupil_event_queued:
+                    self.event_pupil = event
+                    self.pupil_event_queued = True
             elif event in ['blink']:
                 self.event_blink ^= 1
             else:
@@ -589,8 +596,9 @@ class gecko_eye_t(object):
         gecko_events = self.joystick.sample_nonblocking()
         self.handle_events(gecko_events)
         self.joystick_polls +=1
-
-        print ('joystick_polls: {}'.format(self.joystick_polls))
+        
+        if self.debug:
+            print ('joystick_polls: {}'.format(self.joystick_polls))
 
     def run(self):
         while True:
@@ -609,8 +617,20 @@ class gecko_eye_t(object):
 			     self.cfg_db['PUPIL_SMOOTH'])
                 self.frame(v)
             else: # Fractal auto pupil scale
-		v = random.random()
-		self.split(self.currentPupilScale, v, 4.0, 1.0)
+                if self.pupil_event_queued:
+                    self.pupil_event_queued = False
+                    self.eye_event_last = self.event_pupil
+                    if self.event_pupil in ['pupil_widen']:
+                        v = 1.0
+                    elif self.event_pupil in ['pupil_narrow']:
+                        v = 0.0
+                    else:
+                        raise
+                    duration = 0.25
+                else:
+                    v = random.random()
+                    duration = 4.0
+                self.split(self.currentPupilScale, v, duration, 1.0)
 
             self.currentPupilScale = v
             do_exit = self.keyboard_sample()
