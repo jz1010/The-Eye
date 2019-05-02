@@ -531,8 +531,7 @@ class gecko_eye_t(object):
             k = self.mykeys.read()
             if k==27:
                 self.mykeys.close()
-                #self.DISPLAY.stop()
-                #self.DISPLAY.destroy()
+                self.eye_context_next = None
                 return True
         return False
 
@@ -651,9 +650,9 @@ class gecko_eye_t(object):
         return self.eye_context_next
 
     def shutdown(self):
-        pass
         #self.joystick.shutdown()
-        #self.DISPLAY.destroy()
+        pass
+    
         
 if __name__ == "__main__":
     eye_context = 'dragon'
@@ -663,5 +662,7 @@ if __name__ == "__main__":
         gecko_eye.shutdown()
         if eye_context is None:
             break
+        
+    DISPLAY.destroy()
         
     sys.exit(0)
