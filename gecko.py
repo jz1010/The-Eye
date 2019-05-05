@@ -8,7 +8,6 @@ import pi3d
 import random
 import thread
 import time
-import RPi.GPIO as GPIO
 from svg.path import Path, parse_path
 from xml.dom.minidom import parse
 from gfxutil import *
@@ -28,12 +27,6 @@ class gecko_eye_t(object):
             self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
         
         self.parse_args()
-        
-        # GPIO initialization ------------------------------------------------------
-        
-        GPIO.setmode(GPIO.BCM)
-        if self.cfg_db['BLINK_PIN'] >= 0: GPIO.setup(self.cfg_db['BLINK_PIN'], GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
         self.init()
 
     def parse_args(self):
@@ -80,7 +73,6 @@ class gecko_eye_t(object):
             'PUPIL_MAX': 1.0,   # Upper "
             #PUPIL_MAX       = 2.0   # Upper "
             #PUPIL_MAX       = 0.5   # Upper "
-            'BLINK_PIN': 23,    # GPIO pin for blink button
             'AUTOBLINK' : True,  # If True, eye blinks autonomously
             #AUTOBLINK       = False  # If True, eye blinks autonomously
             'cyclops': {
@@ -279,8 +271,8 @@ class gecko_eye_t(object):
     def init_globals(self):
         # Init global stuff --------------------------------------------------------
 
-        #self.mykeys = pi3d.Keyboard() # For capturing key presses
-        self.mykeys = None
+        self.mykeys = pi3d.Keyboard() # For capturing key presses
+        #self.mykeys = None
         
         self.startX       = random.uniform(-30.0, 30.0)
         n = math.sqrt(900.0 - self.startX * self.startX)
@@ -327,17 +319,19 @@ class gecko_eye_t(object):
               endValue,   # Pupil scale ending value (")
               duration,   # Start-to-end time, floating-point seconds
               range):     # +/- random pupil scale at midpoint
+        do_exit = False
 	startTime = time.time()
 	if range >= 0.125: # Limit subdvision count, because recursion
 		duration *= 0.5 # Split time & range in half for subdivision,
 		range    *= 0.5 # then pick random center point within range:
 		midValue  = ((startValue + endValue - range) * 0.5 +
 		             random.uniform(0.0, range))
-		self.split(startValue, midValue, duration, range)
-		self.split(midValue  , endValue, duration, range)
+		do_exit |= self.split(startValue, midValue, duration, range)
+                if not do_exit:
+		    do_exit |= self.split(midValue  , endValue, duration, range)
 	else: # No more subdivisons, do iris motion...
 		dv = endValue - startValue
-		while True:
+		while not do_exit:
 			dt = time.time() - startTime
 			if dt >= duration: break
                         if self.pupil_event_queued: break
@@ -347,6 +341,9 @@ class gecko_eye_t(object):
 			elif v > self.cfg_db['PUPIL_MAX']: v = self.cfg_db['PUPIL_MAX']
 			self.frame(v) # Draw frame w/interim pupil scale value
                         self.do_joystick()
+                        do_exit |= self.keyboard_sample()
+
+        return do_exit
 
     # Generate one frame of imagery
     def frame(self,p):
@@ -531,7 +528,7 @@ class gecko_eye_t(object):
             k = self.mykeys.read()
             if k==27:
                 self.mykeys.close()
-                self.eye_context_next = None
+                #self.eye_context_next = None
                 return True
         return False
 
@@ -609,7 +606,8 @@ class gecko_eye_t(object):
             print ('joystick_polls: {}'.format(self.joystick_polls))
 
     def run(self):
-        while True:
+        do_exit = False
+        while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
 		v = adcValue[self.cfg_db['PUPIL_IN']]
 		if self.cfg_db['PUPIL_IN_FLIP']: v = 1.0 - v
@@ -640,12 +638,14 @@ class gecko_eye_t(object):
                 else:
                     v = random.random()
                     duration = 4.0
-                self.split(self.currentPupilScale, v, duration, 1.0)
+                do_exit |= self.split(self.currentPupilScale, v, duration, 1.0)
 
             self.currentPupilScale = v
-            do_exit = self.keyboard_sample()
-            if do_exit:
-                break
+            #do_exit = self.keyboard_sample()
+            
+        if do_exit:
+            #print ('exiting')
+            self.eye_context_next = None
 
         return self.eye_context_next
 
@@ -659,6 +659,7 @@ if __name__ == "__main__":
     while True:
         gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
         eye_context = gecko_eye.run()
+        #print ('main loop')
         gecko_eye.shutdown()
         if eye_context is None:
             break

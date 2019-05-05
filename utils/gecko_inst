@@ -19,7 +19,7 @@ _EOF_
 if [ ! -f .gecko_runonce ]; then
    touch .gecko_runonce
 #   nfs_setup
-   sudo apt-get update
+   sudo apt-get update -y
    sudo systemctl enable ssh
    sudo systemctl start ssh
    sudo apt-get install emacs nfs-common -y
