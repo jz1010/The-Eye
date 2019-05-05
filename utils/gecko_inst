@@ -23,8 +23,9 @@ if [ ! -f .gecko_runonce ]; then
    sudo systemctl enable ssh
    sudo systemctl start ssh
    sudo apt-get install emacs nfs-common -y
-#   sudo apt-get install python-pygame -y
-   sudo apt-get install evdev -y   
+   #   sudo apt-get install python-pygame -y
+   sudo apt-get install python-pip -y
+   sudo pip install evdev
    sudo apt-get remove --purge libreoffice-* -y
    sudo apt-get remove --purge wolfram-engine -y
    sudo apt-get upgrade -y
