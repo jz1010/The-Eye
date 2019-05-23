@@ -22,7 +22,7 @@ if [ ! -f .gecko_runonce ]; then
    sudo apt-get update -y
    sudo systemctl enable ssh
    sudo systemctl start ssh
-   sudo apt-get install emacs nfs-common -y
+   sudo apt-get install emacs nfs-common git -y
    #   sudo apt-get install python-pygame -y
    sudo apt-get install python-pip -y
    sudo pip install evdev
@@ -39,3 +39,6 @@ URL_SRC="https://raw.githubusercontent.com/adafruit/Raspberry-Pi-Installer-Scrip
 curl ${URL_SRC} > pi-eyes.sh
 
 sudo bash pi-eyes.sh
+
+# Useful tools for more setup via CLI
+# sudo raspi-config
