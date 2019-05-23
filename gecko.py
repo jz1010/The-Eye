@@ -112,7 +112,8 @@ class gecko_eye_t(object):
         self.init_joystick()
         
     def init_joystick(self):
-        self.joystick = joystick_t()
+        #self.joystick = joystick_t()
+        self.joystick = None
         self.joystick_polls = 0
         
         # Set up state kept from events sampled from joystick
@@ -271,8 +272,8 @@ class gecko_eye_t(object):
     def init_globals(self):
         # Init global stuff --------------------------------------------------------
 
-        self.mykeys = pi3d.Keyboard() # For capturing key presses
-        #self.mykeys = None
+        #self.mykeys = pi3d.Keyboard() # For capturing key presses
+        self.mykeys = None
         
         self.startX       = random.uniform(-30.0, 30.0)
         n = math.sqrt(900.0 - self.startX * self.startX)
@@ -598,9 +599,10 @@ class gecko_eye_t(object):
         self.update_eye_events()
 
     def do_joystick(self):
-        gecko_events = self.joystick.sample_nonblocking()
-        self.handle_events(gecko_events)
-        self.joystick_polls +=1
+        if self.joystick is not None:
+            gecko_events = self.joystick.sample_nonblocking()
+            self.handle_events(gecko_events)
+            self.joystick_polls +=1
         
         if self.debug:
             print ('joystick_polls: {}'.format(self.joystick_polls))
@@ -655,7 +657,7 @@ class gecko_eye_t(object):
     
         
 if __name__ == "__main__":
-    eye_context = 'dragon'
+    eye_context = None
     while True:
         gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
         eye_context = gecko_eye.run()
@@ -663,7 +665,7 @@ if __name__ == "__main__":
         gecko_eye.shutdown()
         if eye_context is None:
             break
-        
+
     DISPLAY.destroy()
         
     sys.exit(0)
