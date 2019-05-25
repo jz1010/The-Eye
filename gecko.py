@@ -46,8 +46,11 @@ class gecko_eye_t(object):
                                  action='store',help='Lid art file (.png)')
         self.parser.add_argument('--sclera_art',default=self.cfg_db[self.EYE_SELECT]['sclera.art'],        
                                  action='store',help='Sclera art file (.png)')
+
+        # Parse the arguments
         args = self.parser.parse_args()
-        
+
+        # Harvest and validate the arguments
         self.cfg_db['AUTOBLINK'] = (int(args.autoblink) != 0)
         if self.EYE_SELECT is None:
             self.EYE_SELECT = args.eye_select
@@ -60,6 +63,8 @@ class gecko_eye_t(object):
             self.cfg_db[self.EYE_SELECT]['lid.art'] = args.lid_art
         if args.sclera_art not in ["None"]:                        
             self.cfg_db[self.EYE_SELECT]['sclera.art'] = args.sclera_art
+        self.cfg_db['demo'] = args.demo
+        
         
     def init_cfg_db(self):
         self.cfg_db = {
