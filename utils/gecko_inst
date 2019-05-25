@@ -2,18 +2,34 @@
 
 set -euxo pipefail
 
+# Set up NFS client for development
 nfs_setup {
+   sudo apt-get install nfs-common git -y
    sudo mkdir -p /mnt/skynet
    set +e
    sudo umount /mnt/skynet
    set -e
    sudo chown -R pi:pi /mnt/skynet
-   cp /etc/fstab /var/tmp
+   # This addition should be idempotent
+   cat /etc/fstab | grep -v "Skynet" > /var/tmp/fstab
 sudo cat <<_EOF_ >>/var/tmp/fstab
 192.168.2.220:/volume1/Skynet	/mnt/skynet	nfs	rw,hard,intr,nolock,rsize=32768,wsize=32768	0 0
 _EOF_
    sudo cp /var/tmp/fstab /etc/fstab
    cat /etc/fstab
+   sudo mount -a
+}
+
+# Configure Pi3 for operation
+cfg_setup {
+   sudo apt-get install libjpeg-dev -y
+   sudo pip3 install FBpyGIF
+   sudo cp -f config/boot/config.txt /boot
+   sudo cp -f config/boot/cmdline.txt /boot
+   sudo cp -f config/systemd/boot-splashscreen.service /lib/systemd/system
+   sudo systemctl daemon-reload   
+   sudo systemctl enable boot-splashscreen.service   
+   sudo systemctl start boot-splashscreen.service
 }
 
 if [ ! -f .gecko_runonce ]; then
@@ -22,10 +38,12 @@ if [ ! -f .gecko_runonce ]; then
    sudo apt-get update -y
    sudo systemctl enable ssh
    sudo systemctl start ssh
-   sudo apt-get install emacs nfs-common git -y
-   #   sudo apt-get install python-pygame -y
-   sudo apt-get install python-pip -y
+   sudo apt-get install emacs git python-pip python3-pip -y   
+#   sudo apt-get install python-pygame -y
    sudo pip install evdev
+   cfg_setup
+
+   # Clean up
    sudo apt-get remove --purge libreoffice-* -y
    sudo apt-get remove --purge wolfram-engine -y
    sudo apt-get upgrade -y
@@ -34,10 +52,10 @@ if [ ! -f .gecko_runonce ]; then
 fi
 
 ifconfig
-sudo mount -a
 URL_SRC="https://raw.githubusercontent.com/adafruit/Raspberry-Pi-Installer-Scripts/master/pi-eyes.sh"
 curl ${URL_SRC} > pi-eyes.sh
 
+# Execute the configuration procedure
 sudo bash pi-eyes.sh
 
 # Useful tools for more setup via CLI
