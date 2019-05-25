@@ -31,9 +31,9 @@ class gecko_eye_t(object):
         self.init()
 
     def parse_args(self):
+        self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--demo',default=self.cfg_db['demo'],
                                  action='store_true',help='Demo mode (headless, various eye animations)')
-        self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
                                  action='store',help='Autoblink of eyelid')
         self.parser.add_argument('--eye_select',default=self.EYE_SELECT,
