@@ -13,6 +13,7 @@ from xml.dom.minidom import parse
 from gfxutil import *
 import argparse
 from joystick import joystick_t
+import time
 
 DISPLAY = pi3d.Display.create(samples=4)
 
@@ -25,11 +26,13 @@ class gecko_eye_t(object):
             self.EYE_SELECT = EYE_SELECT
         elif self.EYE_SELECT is None:
             self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
-        
+
         self.parse_args()
         self.init()
 
     def parse_args(self):
+        self.parser.add_argument('--demo',default=self.cfg_db['demo'],
+                                 action='store_true',help='Demo mode (headless, various eye animations)')
         self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
                                  action='store',help='Autoblink of eyelid')
@@ -60,14 +63,15 @@ class gecko_eye_t(object):
         
     def init_cfg_db(self):
         self.cfg_db = {
+            'demo': False, # Demo mode boolean
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
             'JOYSTICK_Y_IN': -1,    # Analog input for eye vert position (")
             'PUPIL_IN': -1,    # Analog input for pupil control (-1 = auto)
             'JOYSTICK_X_FLIP': False, # If True, reverse stick X axis
             'JOYSTICK_Y_FLIP': False, # If True, reverse stick Y axis
             'PUPIL_IN_FLIP': False, # If True, reverse reading from PUPIL_IN
-            #TRACKING        = True  # If True, eyelid tracks pupil
-            'TRACKING': False,  # If True, eyelid tracks pupil
+            #'TRACKING'        = True  # If True, eyelid tracks pupil
+            'TRACKING': True,  # If True, eyelid tracks pupil
             'PUPIL_SMOOTH': 16,    # If > 0, filter input from PUPIL_IN
             'PUPIL_MIN': 0.0,   # Lower analog range from PUPIL_IN
             'PUPIL_MAX': 1.0,   # Upper "
@@ -98,7 +102,7 @@ class gecko_eye_t(object):
 #		'sclera.art': 'hack_graphics/dragon-iris.jpg'
 #		'sclera.art': 'hack_graphics/gecko_s_eye_by_mchahine_d2en705-fullview.jpg'
                 'sclera.art': 'hack_graphics/leopard-gecko-3381555_960_720.jpg',
-#		'sclera.art': 'hack_graphics/crop.png'
+
                 'sclera.art': 'hack_graphics/Ds4CWFgV4AAlhWK.jpg_large.jpg',                
 		 }           
         }
@@ -406,7 +410,7 @@ class gecko_eye_t(object):
                 self.startTime    = now
                 self.isMoving     = True
                 self.update_eye_events(reset=True)
-            elif False:
+            elif True:
                 if dt >= self.holdDuration:
                     self.destX        = random.uniform(-30.0, 30.0)
                     n            = math.sqrt(900.0 - self.destX * self.destX)
@@ -463,7 +467,7 @@ class gecko_eye_t(object):
 
 	if self.cfg_db['TRACKING']:
 		# 0 = fully up, 1 = fully down
-		n = 0.5 - curY / 70.0
+		n = 0.5 - self.curY / 70.0
 		if   n < 0.0: n = 0.0
 		elif n > 1.0: n = 1.0
 		self.trackingPos = (self.trackingPos * 3.0 + n) * 0.25
@@ -608,7 +612,9 @@ class gecko_eye_t(object):
             print ('joystick_polls: {}'.format(self.joystick_polls))
 
     def run(self):
+        global eye_context_ptr
         do_exit = False
+        last_time_sec = time.time()
         while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
 		v = adcValue[self.cfg_db['PUPIL_IN']]
@@ -641,13 +647,25 @@ class gecko_eye_t(object):
                     v = random.random()
                     duration = 4.0
                 do_exit |= self.split(self.currentPupilScale, v, duration, 1.0)
+                
 
             self.currentPupilScale = v
             #do_exit = self.keyboard_sample()
+            now_time_sec = time.time()
+            eye_tenure_sec = 10
+            if int(now_time_sec - last_time_sec) > eye_tenure_sec:
+                do_exit |= True
+    
             
         if do_exit:
             #print ('exiting')
-            self.eye_context_next = None
+            if self.cfg_db['demo']:
+                eye_contexts = ['cyclops','hack','dragon']
+                self.eye_context_next = eye_contexts[eye_context_ptr]
+                eye_context_ptr += 1
+                eye_context_ptr %= len(eye_contexts)
+            else:
+                self.eye_context_next = None
 
         return self.eye_context_next
 
@@ -657,6 +675,7 @@ class gecko_eye_t(object):
     
         
 if __name__ == "__main__":
+    eye_context_ptr = 0
     eye_context = None
     while True:
         gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
