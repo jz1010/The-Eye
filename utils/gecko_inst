@@ -3,7 +3,7 @@
 set -euxo pipefail
 
 # Set up NFS client for development
-nfs_setup {
+nfs_client_setup {
    sudo apt-get install nfs-common git -y
    sudo mkdir -p /mnt/skynet
    set +e
@@ -30,12 +30,14 @@ cfg_setup {
    sudo systemctl daemon-reload   
    sudo systemctl enable boot-splashscreen.service   
    sudo systemctl start boot-splashscreen.service
+
+   # Configure to ignore network?
 }
 
 if [ ! -f .gecko_runonce ]; then
    touch .gecko_runonce
-#   nfs_setup
    sudo apt-get update -y
+#   nfs_client_setup
    sudo systemctl enable ssh
    sudo systemctl start ssh
    sudo apt-get install emacs git python-pip python3-pip -y   
