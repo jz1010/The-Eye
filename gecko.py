@@ -14,8 +14,12 @@ from gfxutil import *
 import argparse
 from joystick import joystick_t
 import time
+from debug import leak_check
 
 DISPLAY = pi3d.Display.create(samples=4)
+cam    = pi3d.Camera(is_3d=False, at=(0,0,0), eye=(0,0,-1000))
+shader = pi3d.Shader("uv_light")
+light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.2, 0.2, 0.2))
 
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
@@ -167,10 +171,11 @@ class gecko_eye_t(object):
         # also this allows eyelids to be handled somewhat easily as 2D planes.
         # Line of sight is down Z axis, allowing conventional X/Y cartesion
         # coords for 2D positions.
-        self.cam    = pi3d.Camera(is_3d=False, at=(0,0,0), eye=(0,0,-1000))
-        self.shader = pi3d.Shader("uv_light")
-        self.light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.2, 0.2, 0.2))
-        
+        global cam, shader, light
+        self.cam = cam
+        self.shader = shader
+        self.light = light
+                
 
     def load_textures(self):
         # Load texture maps --------------------------------------------------------
@@ -652,6 +657,7 @@ class gecko_eye_t(object):
                     v = random.random()
                     duration = 4.0
                 do_exit |= self.split(self.currentPupilScale, v, duration, 1.0)
+                #leak_check()                
                 
 
             self.currentPupilScale = v
@@ -675,18 +681,31 @@ class gecko_eye_t(object):
         return self.eye_context_next
 
     def shutdown(self):
+        #del self.light
+        #del self.cam
+        #del self.shader
         #self.joystick.shutdown()
+        del self.parser
+        self.parser = None
         pass
     
         
 if __name__ == "__main__":
     eye_context_ptr = 0
     eye_context = None
+    eye_contexts = ['cyclops','hack','dragon']
     while True:
+        leak_check()
         gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
-        eye_context = gecko_eye.run()
+        if False:
+            eye_context = eye_contexts[eye_context_ptr]
+            eye_context_ptr += 1
+            eye_context_ptr %= len(eye_contexts)
+        else:
+            eye_context = gecko_eye.run()
         #print ('main loop')
         gecko_eye.shutdown()
+        #del gecko_eye
         if eye_context is None:
             break
 
