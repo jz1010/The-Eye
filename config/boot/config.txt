@@ -58,3 +58,4 @@ dtparam=audio=on
 hdmi_cvt=1680 1050 60 5 0 0 0
 
 disable_splash=1
+gpu_mem=128
