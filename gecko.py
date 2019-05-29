@@ -98,10 +98,14 @@ class gecko_eye_t(object):
             'blink_duration_close_max_sec' : 1.5, # original: 0.12
             'blink_duration_open_min_sec' : 0.5, # original: 0.06
             'blink_duration_open_max_sec' : 1.5, # original: 0.12
-            'blink_interval_min_sec' : 7.0, # original: 3.0
+            'blink_interval_min_sec' : 15.0, # original: 3.0
             'blink_interval_range_sec' : 4.0, # original: 4.0
             'blink_duration_user_min_sec' : 0.035, # caused by Joystick 
             'blink_duration_user_max_sec' : 0.06, # caused by Joystick
+            'move_duration_min_sec' : 1.1, # original: 0.075
+            'move_duration_max_sec' : 3.0, # original: 0.175            
+            'hold_duration_min_sec' : 1.1, # original: 0.1
+            'hold_duration_max_sec' : 3.0, # original: 1.1
             'cyclops': {
 		'eye.shape': 'graphics/cyclops-eye.svg',
 		'iris.art': 'graphics/iris.jpg',
@@ -310,8 +314,10 @@ class gecko_eye_t(object):
         self.destY        = self.startY
         self.curX         = self.startX
         self.curY         = self.startY
-        self.moveDuration = random.uniform(0.075, 0.175)
-        self.holdDuration = random.uniform(0.1, 1.1)
+        self.moveDuration = random.uniform(self.cfg_db['move_duration_min_sec'],
+                                           self.cfg_db['move_duration_max_sec'])
+        self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
+                                           self.cfg_db['hold_duration_max_sec'])
         self.startTime    = 0.0
         self.isMoving     = False
 
@@ -386,6 +392,7 @@ class gecko_eye_t(object):
 #		print(frames/(now-beginningTime))
 
 	if self.cfg_db['JOYSTICK_X_IN'] >= 0 and self.cfg_db['JOYSTICK_Y_IN'] >= 0:
+            raise
             # Eye position from analog inputs
             self.curX = adcValue[self.cfg_db['JOYSTICK_X_IN']]
             self.curY = adcValue[self.cfg_db['JOYSTICK_Y_IN']]
@@ -394,8 +401,7 @@ class gecko_eye_t(object):
             self.curX = -30.0 + self.curX * 60.0
             self.curY = -30.0 + self.curY * 60.0
 	else :
-            # Autonomous eye position
-            if self.isMoving == True:
+            if self.isMoving == True: # Movement/re-positioning is ongoing
                 if dt <= self.moveDuration:
                     scale        = (now - self.startTime) / self.moveDuration
                     # Ease in/out curve: 3*t^2-2*t^3
@@ -407,10 +413,12 @@ class gecko_eye_t(object):
                     self.startY       = self.destY
                     self.curX         = self.destX
                     self.curY         = self.destY
-                    self.holdDuration = random.uniform(0.15, 1.7)
+                    #self.holdDuration = random.uniform(0.15, 1.7)
+                    self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
+                                                       self.cfg_db['hold_duration_max_sec'])
                     self.startTime    = now
                     self.isMoving     = False
-            elif self.event_eye_queued:
+            elif self.event_eye_queued: # Joystick control has priority
                 if self.event_eye_up:
                     self.destX = 0.0
                     n = math.sqrt(900.0 - self.destX * self.destX)
@@ -430,11 +438,11 @@ class gecko_eye_t(object):
                     self.destY = 0.0
                 else:
                     raise
-                self.moveDuration = 0.12
+                self.moveDuration = 0.12 # BOZO: Update this to a symbolic constant
                 self.startTime    = now
                 self.isMoving     = True
                 self.update_eye_events(reset=True)
-            elif True:
+            elif True: # Autonomous eye position
                 if dt >= self.holdDuration:
                     self.destX        = random.uniform(-30.0, 30.0)
                     n            = math.sqrt(900.0 - self.destX * self.destX)
@@ -442,7 +450,9 @@ class gecko_eye_t(object):
                     # Movement is slower in this version because
                     # the WorldEye display is big and the eye
                     # should have some 'mass' to it.
-                    self.moveDuration = random.uniform(0.12, 0.35)
+                    #self.moveDuration = random.uniform(0.12, 0.35)
+                    self.moveDuration = random.uniform(self.cfg_db['move_duration_min_sec'],
+                                                       self.cfg_db['move_duration_max_sec'])
                     self.startTime    = now
                     self.isMoving     = True
 
@@ -683,7 +693,7 @@ class gecko_eye_t(object):
             self.currentPupilScale = v
             #do_exit = self.keyboard_sample()
             now_time_sec = time.time()
-            eye_tenure_sec = 10
+            eye_tenure_sec = self.cfg_db['blink_interval_min_sec'] * 2 # about 2 blinks
             if int(now_time_sec - last_time_sec) > eye_tenure_sec:
                 do_exit |= True
     
@@ -723,9 +733,7 @@ if __name__ == "__main__":
             eye_context_ptr %= len(eye_contexts)
         else:
             eye_context = gecko_eye.run()
-        #print ('main loop')
         gecko_eye.shutdown()
-        #del gecko_eye
         if eye_context is None:
             break
 
