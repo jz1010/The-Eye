@@ -16,10 +16,16 @@ from joystick import joystick_t
 import time
 from debug import leak_check
 
+# These need to be globals in order to avoid a memory leak
 DISPLAY = pi3d.Display.create(samples=4)
 cam    = pi3d.Camera(is_3d=False, at=(0,0,0), eye=(0,0,-1000))
 shader = pi3d.Shader("uv_light")
 light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.2, 0.2, 0.2))
+
+# Blinking states
+BLINK_NONE = 0
+BLINK_CLOSING = 1
+BLINK_OPENING = 2
 
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
@@ -88,6 +94,14 @@ class gecko_eye_t(object):
             #PUPIL_MAX       = 0.5   # Upper "
             'AUTOBLINK' : True,  # If True, eye blinks autonomously
             #AUTOBLINK       = False  # If True, eye blinks autonomously
+            'blink_duration_close_min_sec' : 0.5, # original: 0.06
+            'blink_duration_close_max_sec' : 1.5, # original: 0.12
+            'blink_duration_open_min_sec' : 0.5, # original: 0.06
+            'blink_duration_open_max_sec' : 1.5, # original: 0.12
+            'blink_interval_min_sec' : 7.0, # original: 3.0
+            'blink_interval_range_sec' : 4.0, # original: 4.0
+            'blink_duration_user_min_sec' : 0.035, # caused by Joystick 
+            'blink_duration_user_max_sec' : 0.06, # caused by Joystick
             'cyclops': {
 		'eye.shape': 'graphics/cyclops-eye.svg',
 		'iris.art': 'graphics/iris.jpg',
@@ -323,7 +337,7 @@ class gecko_eye_t(object):
 
         self.timeOfLastBlink = 0.0
         self.timeToNextBlink = 1.0
-        self.blinkState      = 0
+        self.blinkState      = BLINK_NONE
         self.blinkDuration   = 0.1
         self.blinkStartTime  = 0
 
@@ -447,33 +461,39 @@ class gecko_eye_t(object):
 	if self.cfg_db['AUTOBLINK'] and (now - self.timeOfLastBlink) >= self.timeToNextBlink:
 		# Similar to movement, eye blinks are slower in this version
 		self.timeOfLastBlink = now
-		duration        = random.uniform(0.06, 0.12)
-		if self.blinkState != 1:
-			self.blinkState     = 1 # ENBLINK
+		duration        = random.uniform(self.cfg_db['blink_duration_close_min_sec'],
+                                                 self.cfg_db['blink_duration_close_max_sec'])
+		if self.blinkState != BLINK_CLOSING: # infer BLINK_NONE (or BLINK_OPENING?)
+			self.blinkState     = BLINK_CLOSING 
 			self.blinkStartTime = now
 			self.blinkDuration  = duration
-                self.timeToNextBlink = duration * 3 + random.uniform(0.0, 4.0)
+                self.timeToNextBlink = duration * self.cfg_db['blink_interval_min_sec'] + \
+                    random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
 
-	if self.blinkState: # Eye currently winking/blinking?
+	if self.blinkState: # Eye currently winking/blinking (BLINK_CLOSING or BLINK_OPENING)
 		# Check if blink time has elapsed...
 		if (now - self.blinkStartTime) >= self.blinkDuration:
 			# Yes...increment blink state, unless...
-			if (self.blinkState == 1 and # Enblinking and...
+			if (self.blinkState == BLINK_CLOSING and # Enblinking and...
                             self.event_blink == 0):
 				# Don't advance yet; eye is held closed
 				pass
 			else:
-				self.blinkState += 1
-				if self.blinkState > 2:
-					self.blinkState = 0 # NOBLINK
-				else:
-					self.blinkDuration *= 2.0
-					self.blinkStartTime = now
-	else:
+			    self.blinkState += 1
+			    if self.blinkState > BLINK_OPENING:
+				self.blinkState = BLINK_NONE # NOBLINK
+			    else: # infer BLINK_OPENING
+                                assert (self.blinkState == BLINK_OPENING)
+		                duration = random.uniform(self.cfg_db['blink_duration_open_min_sec'],
+                                                          self.cfg_db['blink_duration_open_max_sec'])
+		                self.blinkDuration = duration
+				self.blinkStartTime = now
+	else: # infer BLINK_NONE
             if self.event_blink == 0:
-                self.blinkState     = 1 # ENBLINK
+                self.blinkState     = BLINK_CLOSING
                 self.blinkStartTime = now
-                self.blinkDuration  = random.uniform(0.035, 0.06)
+                self.blinkDuration  = random.uniform(self.cfg_db['blink_duration_user_min_sec'],
+                                                     self.cfg_db['blink_duration_user_max_sec'])
 
 	if self.cfg_db['TRACKING']:
 		# 0 = fully up, 1 = fully down
@@ -482,11 +502,11 @@ class gecko_eye_t(object):
 		elif n > 1.0: n = 1.0
 		self.trackingPos = (self.trackingPos * 3.0 + n) * 0.25
 
-	if self.blinkState:
+	if self.blinkState: # blink opening/closing
 		n = (now - self.blinkStartTime) / self.blinkDuration
 		if n > 1.0: n = 1.0
-		if self.blinkState == 2: n = 1.0 - n
-	else:
+		if self.blinkState == BLINK_OPENING: n = 1.0 - n
+	else: # infer BLINK_NONE, Not blinking
 		n = 0.0
         self.newUpperLidWeight = self.trackingPos + (n * (1.0 - self.trackingPos))
 	self.newLowerLidWeight = (1.0 - self.trackingPos) + (n * self.trackingPos)
