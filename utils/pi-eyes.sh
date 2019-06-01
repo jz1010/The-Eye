@@ -19,12 +19,12 @@ echo "- Set HDMI resolution, disable overscan"
 echo "Run time ~25 minutes. Reboot required."
 echo "EXISTING INSTALLATION, IF ANY, WILL BE OVERWRITTEN."
 echo
-echo -n "CONTINUE? [y/N] "
-read
-if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
-	echo "Canceled."
-	exit 0
-fi
+#echo -n "CONTINUE? [y/N] "
+#read
+#if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
+#	echo "Canceled."
+#	exit 0
+#fi
 
 # FEATURE PROMPTS ----------------------------------------------------------
 # Installation doesn't begin until after all user input is taken.
@@ -52,60 +52,64 @@ selectN() {
 	done
 }
 
-SCREEN_VALUES=(-o -t -i)
-SCREEN_NAMES=("OLED (128x128)" "TFT (128x128)" "IPS (240x240)" HDMI)
-RADIUS_VALUES=(128 128 240)
-OPTION_NAMES=(NO YES)
-echo
-echo "Select screen type:"
-selectN "${SCREEN_NAMES[0]}" \
-        "${SCREEN_NAMES[1]}" \
-        "${SCREEN_NAMES[2]}" \
-        "${SCREEN_NAMES[3]}"
-SCREEN_SELECT=$?
+#SCREEN_VALUES=(-o -t -i)
+#SCREEN_NAMES=("OLED (128x128)" "TFT (128x128)" "IPS (240x240)" HDMI)
+#RADIUS_VALUES=(128 128 240)
+#OPTION_NAMES=(NO YES)
+#echo
+#echo "Select screen type:"
+#selectN "${SCREEN_NAMES[0]}" \
+#        "${SCREEN_NAMES[1]}" \
+#        "${SCREEN_NAMES[2]}" \
+#        "${SCREEN_NAMES[3]}"
+#SCREEN_SELECT=$?
+SCREEN_SELECT=4
 
-echo -n "Install GPIO-halt utility? [y/N] "
-read
-if [[ "$REPLY" =~ (yes|y|Y)$ ]]; then
-	INSTALL_HALT=1
-	echo -n "GPIO pin for halt: "
-	read
-	HALT_PIN=$REPLY
-fi
+#echo -n "Install GPIO-halt utility? [y/N] "
+#read
+#if [[ "$REPLY" =~ (yes|y|Y)$ ]]; then
+#	INSTALL_HALT=1
+#	echo -n "GPIO pin for halt: "
+#	read
+#	HALT_PIN=$REPLY
+#fi
+INSTALL_HALT=0
 
-echo -n "Install ADC support? [y/N] "
-read
-if [[ "$REPLY" =~ (yes|y|Y)$ ]]; then
-	INSTALL_ADC=1
-fi
+#echo -n "Install ADC support? [y/N] "
+#read
+#if [[ "$REPLY" =~ (yes|y|Y)$ ]]; then
+#	INSTALL_ADC=1
+#fi
+INSTALL_ADC=0
 
-echo -n "Install USB Ethernet gadget support? (Pi Zero) [y/N] "
-read
-if [[ "$REPLY" =~ (yes|y|Y)$ ]]; then
-	INSTALL_GADGET=1
-fi
+#echo -n "Install USB Ethernet gadget support? (Pi Zero) [y/N] "
+#read
+#if [[ "$REPLY" =~ (yes|y|Y)$ ]]; then
+#	INSTALL_GADGET=1
+#fi
+INSTALL_GADGET=0
 
-echo
-echo "Screen type: ${SCREEN_NAMES[$SCREEN_SELECT-1]}"
-if [ $INSTALL_HALT -eq 1 ]; then
-	echo "Install GPIO-halt: YES (GPIO$HALT_PIN)"
-else
-	echo "Install GPIO-halt: NO"
-fi
-echo "ADC support: ${OPTION_NAMES[$INSTALL_ADC]}"
-echo "Ethernet USB gadget support: ${OPTION_NAMES[$INSTALL_GADGET]}"
-if [ $SCREEN_SELECT -eq 3 ]; then
-	echo "Video resolution will be set to 1280x720, no overscan"
-else
-	echo "Video resolution will be set to 640x480, no overscan"
-fi
-echo
-echo -n "CONTINUE? [y/N] "
-read
-if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
-	echo "Canceled."
-	exit 0
-fi
+#echo
+#echo "Screen type: ${SCREEN_NAMES[$SCREEN_SELECT-1]}"
+#if [ $INSTALL_HALT -eq 1 ]; then
+#	echo "Install GPIO-halt: YES (GPIO$HALT_PIN)"
+#else
+#	echo "Install GPIO-halt: NO"
+#fi
+#echo "ADC support: ${OPTION_NAMES[$INSTALL_ADC]}"
+#echo "Ethernet USB gadget support: ${OPTION_NAMES[$INSTALL_GADGET]}"
+#if [ $SCREEN_SELECT -eq 3 ]; then
+#	echo "Video resolution will be set to 1280x720, no overscan"
+#else
+#	echo "Video resolution will be set to 640x480, no overscan"
+#fi
+#echo
+#echo -n "CONTINUE? [y/N] "
+#read
+#if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
+#	echo "Canceled."
+#	exit 0
+#fi
 
 # START INSTALL ------------------------------------------------------------
 # All selections are validated at this point...
@@ -140,7 +144,7 @@ reconfig2() {
 echo
 echo "Starting installation..."
 echo "Updating package index files..."
-apt-get update
+apt-get update -y
 
 echo "Installing Python libraries..."
 apt-get install -y --force-yes python-pip python-dev python-imaging python-smbus
@@ -268,12 +272,13 @@ echo "Done."
 echo
 echo "Settings take effect on next boot."
 echo
-echo -n "REBOOT NOW? [y/N] "
-read
-if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
-	echo "Exiting without reboot."
-	exit 0
-fi
-echo "Reboot started..."
-reboot
+#echo -n "REBOOT NOW? [y/N] "
+#read
+#if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
+#	echo "Exiting without reboot."
+#	exit 0
+#fi
+#echo "Reboot started..."
+#reboot
+
 exit 0
