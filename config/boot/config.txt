@@ -54,8 +54,8 @@ hdmi_mode=87
 
 # Enable audio (loads snd_bcm2835)
 dtparam=audio=on
-#hdmi_cvt=640 480 60 1 0 0 0
-hdmi_cvt=1680 1050 60 5 0 0 0
+hdmi_cvt=640 480 60 1 0 0 0
+#hdmi_cvt=1680 1050 60 5 0 0 0
 
 disable_splash=1
 gpu_mem=128
