@@ -5,6 +5,7 @@ set -euxo pipefail
 SB_GECKO_REMOTE=/mnt/skynet/sboxes_gecko/sb0_gecko
 SB_GECKO_LOCAL=/home/pi/sb_production
 REPO_HTTP=https://jcpeck@bitbucket.org/jcpeck/gecko_eyes.git
+TMPDIR=/var/tmp
 
 # Set up NFS client for development
 function nfs_client_setup {
@@ -79,9 +80,11 @@ if [ ! -f .gecko_pieyes ]; then
    #sudo bash pi-eyes.sh
    sudo bash ${SB_GECKO_LOCAL}/utils/pi-eyes.sh
    sudo cp -f ${SB_GECKO_LOCAL}/config/boot/config.txt /boot
-   sudo cat /boot/cmdline.txt | sed -e s/console=tty1/console=tty3/g > /var/tmp/cmdline.txt 
-   sudo paste -d'\0' /var/tmp/cmdline.txt ${SB_GECKO_LOCAL}/config/boot/cmdline.txt > /boot/cmdline.txt
-   rm -f /var/tmp/cmdline.txt
+   sudo cat /boot/cmdline.txt | sed -e s/console=tty1/console=tty3/g > ${TMPDIR}/cmdline.txt 
+   sudo paste -d'\0' ${TMPDIR}/cmdline.txt \
+	${SB_GECKO_LOCAL}/config/boot/cmdline.txt \
+	> /boot/cmdline.txt
+   rm -f ${TMPDIR}/cmdline.txt
    sudo cp -f ${SB_GECKO_LOCAL}/config/etc/rc.local /etc
    touch .gecko_pieyes
    sudo reboot
