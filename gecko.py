@@ -13,7 +13,6 @@ from xml.dom.minidom import parse
 from gfxutil import *
 import argparse
 from joystick import joystick_t
-import time
 from debug import leak_check
 
 # These need to be globals in order to avoid a memory leak
@@ -44,6 +43,9 @@ class gecko_eye_t(object):
         self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--demo',default=self.cfg_db['demo'],
                                  action='store_true',help='Demo mode (headless, various eye animations)')
+        self.parser.add_argument('--timeout',default=self.cfg_db['timeout'],
+                                 action='store',type=int,help='Exit application after N seconds')
+        
         self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
                                  action='store',help='Autoblink of eyelid')
         self.parser.add_argument('--eye_select',default=self.EYE_SELECT,
@@ -73,12 +75,14 @@ class gecko_eye_t(object):
             self.cfg_db[self.EYE_SELECT]['lid.art'] = args.lid_art
         if args.sclera_art not in ["None"]:                        
             self.cfg_db[self.EYE_SELECT]['sclera.art'] = args.sclera_art
+            
         self.cfg_db['demo'] = args.demo
-        
+        self.cfg_db['timeout'] = args.timeout
         
     def init_cfg_db(self):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
+            'timeout':None, # 1 hour (60 min * 60 sec)
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
             'JOYSTICK_Y_IN': -1,    # Analog input for eye vert position (")
             'PUPIL_IN': -1,    # Analog input for pupil control (-1 = auto)
@@ -724,7 +728,9 @@ if __name__ == "__main__":
     eye_context_ptr = 0
     eye_context = None
     eye_contexts = ['cyclops','hack','dragon']
-    while True:
+    first_time = time.time()    
+    timeout = False
+    while True and not timeout:
         leak_check()
         gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
         if False:
@@ -733,6 +739,11 @@ if __name__ == "__main__":
             eye_context_ptr %= len(eye_contexts)
         else:
             eye_context = gecko_eye.run()
+        if gecko_eye.cfg_db['timeout'] is not None:
+            now = time.time()
+            if now > first_time + gecko_eye.cfg_db['timeout']:
+                timeout = True
+            
         gecko_eye.shutdown()
         if eye_context is None:
             break

@@ -18,5 +18,6 @@ if [ "$_IP" ]; then
 fi
 
 #cd /boot/Pi_Eyes;python cyclops.py &
-cd /home/pi/sb_production;python gecko.py &
+#cd /home/pi/sb_production;python gecko.py &
+cd /home/pi/sb_production/utils;./wrap_demo &
 exit 0
