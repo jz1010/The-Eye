@@ -43,7 +43,7 @@ class gecko_eye_t(object):
         self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--demo',default=self.cfg_db['demo'],
                                  action='store_true',help='Demo mode (headless, various eye animations)')
-        self.parser.add_argument('--timeout',default=self.cfg_db['timeout'],
+        self.parser.add_argument('--timeout_secs',default=self.cfg_db['timeout_secs'],
                                  action='store',type=int,help='Exit application after N seconds')
         
         self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
@@ -77,12 +77,12 @@ class gecko_eye_t(object):
             self.cfg_db[self.EYE_SELECT]['sclera.art'] = args.sclera_art
             
         self.cfg_db['demo'] = args.demo
-        self.cfg_db['timeout'] = args.timeout
+        self.cfg_db['timeout_secs'] = args.timeout_secs
         
     def init_cfg_db(self):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
-            'timeout':None, # 1 hour (60 min * 60 sec)
+            'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
             'JOYSTICK_Y_IN': -1,    # Analog input for eye vert position (")
             'PUPIL_IN': -1,    # Analog input for pupil control (-1 = auto)
@@ -739,9 +739,9 @@ if __name__ == "__main__":
             eye_context_ptr %= len(eye_contexts)
         else:
             eye_context = gecko_eye.run()
-        if gecko_eye.cfg_db['timeout'] is not None:
+        if gecko_eye.cfg_db['timeout_secs'] is not None:
             time_now = time.time()
-            if time_now > time_first + gecko_eye.cfg_db['timeout']:
+            if time_now > time_first + gecko_eye.cfg_db['timeout_secs']:
                 timeout = True
             
         gecko_eye.shutdown()

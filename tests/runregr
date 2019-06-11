@@ -10,7 +10,7 @@ elif [ ${TEST_MODE} == "smoke" ]; then
     TIMEOUT_SECS=60
 fi    
 
-python ${TEST_ROOT}/gecko.py --demo --timeout ${TIMEOUT_SECS}
+python ${TEST_ROOT}/gecko.py --demo --timeout_secs ${TIMEOUT_SECS}
 
 echo "** REGRESSION PASSED **"
 exit 0
