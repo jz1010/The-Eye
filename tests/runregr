@@ -2,6 +2,9 @@
 
 set -euxo pipefail
 
+# Test mode is the first argument on the command line.
+# Test mode is specifed in the Jenkins Build->Execute shell->Command box.
+
 TEST_MODE=$1
 
 if [ ${TEST_MODE} == "nightly" ]; then
