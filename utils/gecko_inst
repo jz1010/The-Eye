@@ -36,6 +36,26 @@ function cfg_setup {
    # Configure to ignore network?
 }
 
+# For development/regression node
+function jenkins_setup {
+   sudo apt-get install oracle-java8-jdk -y
+   sudo mkdir -p /mnt/regrtmp
+   set +e
+   sudo umount /mnt/regrtmp
+   set -e
+   sudo chown -R pi:pi /mnt/regrtmp
+   # This addition should be idempotent
+   cat /etc/fstab | grep -v "regrtmp" > /var/tmp/fstab
+sudo cat <<_EOF_ >>/var/tmp/fstab
+192.168.123.220:/volume1/regrtmp	/mnt/regrtmp	nfs	rw,hard,intr,nolock,rsize=32768,wsize=32768	0 0
+_EOF_
+   sudo cp /var/tmp/fstab /etc/fstab
+   cat /etc/fstab
+   sudo mount -a    
+}
+
+### Main setup begins here ###
+
 if [ ! -f .gecko_runonce ]; then
    sudo apt-get update -y
    nfs_client_setup
@@ -89,6 +109,11 @@ if [ ! -f .gecko_pieyes ]; then
    touch .gecko_pieyes
    sudo reboot
 fi
+
+if [ -f .develop ]; then
+   jenkins_setup
+fi
+
 
 # Useful tools for more setup via CLI
 # sudo raspi-config
