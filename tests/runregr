@@ -2,7 +2,15 @@
 
 set -euxo pipefail
 
-python ${TEST_ROOT}/gecko.py --demo --timeout 20
+TEST_MODE=$1
+
+if [ ${TEST_MODE} == "nightly" ]; then
+    TIMEOUT_SECS=3600
+elif [ ${TEST_MODE} == "smoke" ]; then
+    TIMEOUT_SECS=60
+fi    
+
+python ${TEST_ROOT}/gecko.py --demo --timeout ${TIMEOUT_SECS}
 
 echo "** REGRESSION PASSED **"
 exit 0
