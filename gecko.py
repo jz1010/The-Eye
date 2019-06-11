@@ -656,7 +656,6 @@ class gecko_eye_t(object):
             print ('joystick_polls: {}'.format(self.joystick_polls))
 
     def run(self):
-        global eye_context_ptr
         do_exit = False
         last_time_sec = time.time()
         while not do_exit:
@@ -705,7 +704,8 @@ class gecko_eye_t(object):
         if do_exit:
             #print ('exiting')
             if self.cfg_db['demo']:
-                eye_contexts = ['cyclops','hack','dragon']
+                global eye_contexts, eye_context_ptr
+
                 self.eye_context_next = eye_contexts[eye_context_ptr]
                 eye_context_ptr += 1
                 eye_context_ptr %= len(eye_contexts)
@@ -725,10 +725,10 @@ class gecko_eye_t(object):
     
         
 if __name__ == "__main__":
+    eye_contexts = ['cyclops','hack','dragon']
     eye_context_ptr = 0
     eye_context = None
-    eye_contexts = ['cyclops','hack','dragon']
-    first_time = time.time()    
+    time_first = time.time()    
     timeout = False
     while True and not timeout:
         leak_check()
@@ -740,8 +740,8 @@ if __name__ == "__main__":
         else:
             eye_context = gecko_eye.run()
         if gecko_eye.cfg_db['timeout'] is not None:
-            now = time.time()
-            if now > first_time + gecko_eye.cfg_db['timeout']:
+            time_now = time.time()
+            if time_now > time_first + gecko_eye.cfg_db['timeout']:
                 timeout = True
             
         gecko_eye.shutdown()
