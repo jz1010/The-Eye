@@ -2,6 +2,22 @@
 
 set -euxo pipefail
 
+WORKDIR=/mnt/tmp_gecko
+
+F_IMAGE=$1
+FNAME=$(basename ${F_IMAGE})
+FNAME_BASE=${FNAME%.img}
+DIRNAME=$(dirname ${F_IMAGE})
+
+F_IMAGE_WORK=${WORKDIR}/${FNAME}
+F_IMAGE_TRUNC=${WORKDIR}/${FNAME_BASE}_trunc.img
+
+rm -f ${F_IMAGE_TRUNC}
+
+if [ ! -e ${WORKDIR}/${FNAME} ]; then
+    cp ${F_IMAGE} ${WORKDIR}
+fi
+     
 sudo modprobe loop
 set +e
 sudo losetup -a
@@ -11,12 +27,10 @@ echo "LOOPDEV: ${LOOPDEV}"
 
 # Validate argument count here
 
-F_IMAGE=$1
-
-sudo chown peck:peck ${F_IMAGE}
+sudo chown peck:peck ${F_IMAGE_WORK}
 
 ## COMMAND RUN AND OUTPUT EXCERPTED BELOW
-#sudo fdisk -l ${F_IMAGE}
+sudo fdisk -l ${F_IMAGE_WORK}
 
 #Disk 2019-03-25b_preload.img: 59.5 GiB, 63864569856 bytes, 124735488 sectors
 #Units: sectors of 1 * 512 = 512 bytes
@@ -36,7 +50,7 @@ sudo losetup -d ${LOOPDEV}
 set -e
 
 # COMMAND RUN AND OUTPUT EXCERPTED BELOW
-sudo losetup ${LOOPDEV} ${F_IMAGE} -o $((START*512))
+sudo losetup ${LOOPDEV} ${F_IMAGE_WORK} -o $((${START}*512))
 #sudo gparted ${LOOPDEV}
 
 # Free space preceding (MiB):  0
@@ -44,9 +58,9 @@ sudo losetup ${LOOPDEV} ${F_IMAGE} -o $((START*512))
 # Free space following (MiB):  58232
 # Align to:  MiB
 
-# resize2fs -p ${LOOPDEV} 1410048K
-
-NEWSIZE=2646
+NEWSIZE=2709504
+sudo e2fsck -y -f ${LOOPDEV}
+sudo resize2fs -p ${LOOPDEV} ${NEWSIZE}K
 
 set +e
 sudo losetup -d ${LOOPDEV}
@@ -54,7 +68,7 @@ set -e
 
 #exit 0
 
-sudo losetup ${LOOPDEV} ${F_IMAGE}
+sudo losetup ${LOOPDEV} ${F_IMAGE_WORK}
 set +e
 sudo fdisk ${LOOPDEV} <<EOF
 d
@@ -63,7 +77,7 @@ n
 p
 2
 ${START}
-+${NEWSIZE}M
++${NEWSIZE}K
 w
 EOF
 set -e
@@ -82,20 +96,22 @@ sudo fdisk -l ${LOOPDEV}
 #/dev/loop0p1       8192   98045   89854 43.9M  c W95 FAT32 (LBA)
 #/dev/loop0p2      98304 5517311 5419008  2.6G 83 Linux
 
+#exit 0
+
 END=5517311
 
 set +e
 sudo losetup -d ${LOOPDEV}
 set -e
 
-F_IMAGE_NEW=${F_IMAGE}.trunc
-mv ${F_IMAGE} ${F_IMAGE_NEW}
-truncate -s $(((END+1)*512)) ${F_IMAGE_NEW}
+mv ${F_IMAGE_WORK} ${F_IMAGE_TRUNC}
+truncate -s $(((${END}+1)*512)) ${F_IMAGE_TRUNC}
+cp -f ${F_IMAGE_TRUNC} ${DIRNAME}
 
 exit 0
 
 # ERROR:  Mount below doesn't succeed
-sudo losetup ${LOOPDEV} ${F_IMAGE_NEW} -o $((START*512))
+sudo losetup ${LOOPDEV} ${F_IMAGE_TRUNC} -o $((${START}*512))
 sudo mkdir -p /mnt/imageroot
 sudo mount ${LOOPDEV} /mnt/imageroot
 sudo dcfldd if=${LOOPDEV} of=/mnt/imageroot/zero.txt
@@ -108,7 +124,7 @@ set -e
 
 exit 0
 
-gzip ${F_IMAGE_NEW}
+gzip ${F_IMAGE_TRUNC}
 
 # Actions on client side
 #sudo raspi-config --expand-rootfs
