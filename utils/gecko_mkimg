@@ -12,7 +12,7 @@ DIRNAME=$(dirname ${F_IMAGE})
 F_IMAGE_WORK=${WORKDIR}/${FNAME}
 F_IMAGE_TRUNC=${WORKDIR}/${FNAME_BASE}_trunc.img
 
-rm -f ${F_IMAGE_TRUNC}
+rm -f ${F_IMAGE_TRUNC} ${WORKDIR}/*.gz 
 
 if [ ! -e ${WORKDIR}/${FNAME} ]; then
     cp ${F_IMAGE} ${WORKDIR}
@@ -22,8 +22,8 @@ sudo modprobe loop
 set +e
 sudo losetup -a
 
-LOOPDEV=$(sudo losetup -f)
-echo "LOOPDEV: ${LOOPDEV}"
+#LOOPDEV=$(sudo losetup -f)
+#echo "LOOPDEV: ${LOOPDEV}"
 
 # Validate argument count here
 
@@ -45,11 +45,12 @@ sudo fdisk -l ${F_IMAGE_WORK}
 
 START=98304
 
-set +e
-sudo losetup -d ${LOOPDEV}
-set -e
+#set +e
+#sudo losetup -d ${LOOPDEV}
+#set -e
 
 # COMMAND RUN AND OUTPUT EXCERPTED BELOW
+LOOPDEV=$(sudo losetup -f)
 sudo losetup ${LOOPDEV} ${F_IMAGE_WORK} -o $((${START}*512))
 #sudo gparted ${LOOPDEV}
 
@@ -68,6 +69,7 @@ set -e
 
 #exit 0
 
+LOOPDEV=$(sudo losetup -f)
 sudo losetup ${LOOPDEV} ${F_IMAGE_WORK}
 set +e
 sudo fdisk ${LOOPDEV} <<EOF
@@ -106,11 +108,15 @@ set -e
 
 mv ${F_IMAGE_WORK} ${F_IMAGE_TRUNC}
 truncate -s $(((${END}+1)*512)) ${F_IMAGE_TRUNC}
-cp -f ${F_IMAGE_TRUNC} ${DIRNAME}
+F_IMAGE_TRUNC_GZ=${F_IMAGE_TRUNC}.gz
+gzip -c ${F_IMAGE_TRUNC} > ${F_IMAGE_TRUNC_GZ}
+cp -f ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
+cp -f ${F_IMAGE_TRUNC_GZ} ~/Dropbox/Gecko
 
 exit 0
 
 # ERROR:  Mount below doesn't succeed
+LOOPDEV=$(sudo losetup -f)
 sudo losetup ${LOOPDEV} ${F_IMAGE_TRUNC} -o $((${START}*512))
 sudo mkdir -p /mnt/imageroot
 sudo mount ${LOOPDEV} /mnt/imageroot
@@ -123,8 +129,6 @@ sudo losetup -d ${LOOPDEV}
 set -e
 
 exit 0
-
-gzip ${F_IMAGE_TRUNC}
 
 # Actions on client side
 #sudo raspi-config --expand-rootfs
