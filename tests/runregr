@@ -1,11 +1,16 @@
 #!/bin/bash
 
-set -euxo pipefail
-
 # Test mode is the first argument on the command line.
 # Test mode is specifed in the Jenkins Build->Execute shell->Command box.
 
-TEST_MODE=$1
+set -euxo pipefail
+export DVROOT=`dv_root`
+
+if [ $# -eq 0 ]; then
+    TEST_MODE="smoke"
+else    
+    TEST_MODE=$1
+fi
 
 if [ ${TEST_MODE} == "nightly" ]; then
     TIMEOUT_SECS=3600
@@ -13,7 +18,17 @@ elif [ ${TEST_MODE} == "smoke" ]; then
     TIMEOUT_SECS=60
 fi    
 
-python ${TEST_ROOT}/gecko.py --demo --timeout_secs ${TIMEOUT_SECS}
+if [ ${TEST_MODE} != "nightly_tools" ]; then
+    python ${TEST_ROOT}/gecko.py --demo --timeout_secs ${TIMEOUT_SECS}
+fi
+
+
+DIR_IMG=/mnt/skynet/sboxes_gecko
+FNAME_IMAGE=${DIR_IMG}/2019-06-09_demo.img
+
+if [ ${TEST_MODE} == "nightly_tools" ]; then
+    ${DVROOT}/utils/gecko_mkimg ${FNAME_IMAGE} |& tee log.gecko_mkimg
+fi
 
 echo "** REGRESSION PASSED **"
 exit 0
