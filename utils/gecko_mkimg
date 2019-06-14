@@ -19,7 +19,6 @@ rm -f ${F_IMAGE_TRUNC} ${WORKDIR}/*.gz
 
 if [ ! -e ${WORKDIR}/${FNAME} ]; then
     cp ${F_IMAGE} ${WORKDIR}
-    sudo chown ${USER}:${GROUP} ${WORKDIR}/${FNAME}
 fi
      
 sudo modprobe loop
@@ -31,7 +30,7 @@ sudo losetup -a
 
 # Validate argument count here
 
-sudo chown peck:peck ${F_IMAGE_WORK}
+sudo chown ${USER}:${GROUP} ${F_IMAGE_WORK}
 
 ## COMMAND RUN AND OUTPUT EXCERPTED BELOW
 sudo fdisk -l ${F_IMAGE_WORK}
