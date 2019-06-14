@@ -2,23 +2,36 @@
 
 set -euxo pipefail
 
+USER=$(whoami)
 GROUP=develtools
 
 WORKDIR=/mnt/tmp_gecko/${USER}
 mkdir -p ${WORKDIR}
 
 F_IMAGE=$1
-FNAME=$(basename ${F_IMAGE})
-FNAME_BASE=${FNAME%.img}
 DIRNAME=$(dirname ${F_IMAGE})
+FNAME=$(basename ${F_IMAGE})
+EXTENSION="${FNAME##*.}"
+if [ ${EXTENSION} == "gz" ]; then
+    FNAME_BASE=${FNAME%.img.*}
+else
+    FNAME_BASE=${FNAME%.img}
+fi
 
-F_IMAGE_WORK=${WORKDIR}/${FNAME}
+
+F_IMAGE_WORK=${WORKDIR}/${FNAME_BASE}.img
 F_IMAGE_TRUNC=${WORKDIR}/${FNAME_BASE}_trunc.img
+
+#exit 0
 
 rm -f ${F_IMAGE_TRUNC} ${WORKDIR}/*.gz 
 
 if [ ! -e ${WORKDIR}/${FNAME} ]; then
-    cp ${F_IMAGE} ${WORKDIR}
+    if [ ${EXTENSION} == "gz" ]; then
+	zcat ${F_IMAGE} > ${F_IMAGE_WORK}
+    else
+	cp ${F_IMAGE} ${WORKDIR}
+    fi
 fi
      
 sudo modprobe loop
@@ -113,8 +126,8 @@ mv ${F_IMAGE_WORK} ${F_IMAGE_TRUNC}
 truncate -s $(((${END}+1)*512)) ${F_IMAGE_TRUNC}
 F_IMAGE_TRUNC_GZ=${F_IMAGE_TRUNC}.gz
 gzip -c ${F_IMAGE_TRUNC} > ${F_IMAGE_TRUNC_GZ}
-mv ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
-mv ${F_IMAGE_TRUNC_GZ} ~/Dropbox/Gecko
+sudo cp ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
+sudo mv ${F_IMAGE_TRUNC_GZ} ~/Dropbox/Gecko
 
 exit 0
 
@@ -123,7 +136,7 @@ LOOPDEV=$(sudo losetup -f)
 sudo losetup ${LOOPDEV} ${F_IMAGE_TRUNC} -o $((${START}*512))
 sudo mkdir -p /mnt/imageroot
 sudo mount ${LOOPDEV} /mnt/imageroot
-sudo dcfldd if=${LOOPDEV} of=/mnt/imageroot/zero.txt
+sudo dcfldd if=/dev/zero of=/mnt/imageroot/zero.txt
 sudo rm /mnt/imageroot/zero.txt
 sudo umount /mnt/imageroot
 sudo rmdir /mnt/imageroot
