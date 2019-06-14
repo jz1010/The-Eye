@@ -2,7 +2,8 @@
 
 set -euxo pipefail
 
-WORKDIR=/mnt/tmp_gecko
+WORKDIR=/mnt/tmp_gecko/${USER}
+mkdir -p ${WORKDIR}
 
 F_IMAGE=$1
 FNAME=$(basename ${F_IMAGE})
@@ -110,8 +111,8 @@ mv ${F_IMAGE_WORK} ${F_IMAGE_TRUNC}
 truncate -s $(((${END}+1)*512)) ${F_IMAGE_TRUNC}
 F_IMAGE_TRUNC_GZ=${F_IMAGE_TRUNC}.gz
 gzip -c ${F_IMAGE_TRUNC} > ${F_IMAGE_TRUNC_GZ}
-cp -f ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
-cp -f ${F_IMAGE_TRUNC_GZ} ~/Dropbox/Gecko
+mv ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
+mv ${F_IMAGE_TRUNC_GZ} ~/Dropbox/Gecko
 
 exit 0
 
