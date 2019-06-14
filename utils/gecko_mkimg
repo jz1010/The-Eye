@@ -2,6 +2,8 @@
 
 set -euxo pipefail
 
+GROUP=develtools
+
 WORKDIR=/mnt/tmp_gecko/${USER}
 mkdir -p ${WORKDIR}
 
@@ -17,6 +19,7 @@ rm -f ${F_IMAGE_TRUNC} ${WORKDIR}/*.gz
 
 if [ ! -e ${WORKDIR}/${FNAME} ]; then
     cp ${F_IMAGE} ${WORKDIR}
+    sudo chown ${USER}:${GROUP} ${WORKDIR}/${FNAME}
 fi
      
 sudo modprobe loop
