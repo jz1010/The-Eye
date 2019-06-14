@@ -6,6 +6,7 @@ USER=$(whoami)
 GROUP=develtools
 
 WORKDIR=/mnt/tmp_gecko/${USER}
+DROPBOX=/home/peck/Dropbox
 mkdir -p ${WORKDIR}
 
 F_IMAGE=$1
@@ -127,7 +128,7 @@ truncate -s $(((${END}+1)*512)) ${F_IMAGE_TRUNC}
 F_IMAGE_TRUNC_GZ=${F_IMAGE_TRUNC}.gz
 gzip -c ${F_IMAGE_TRUNC} > ${F_IMAGE_TRUNC_GZ}
 sudo cp ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
-sudo mv ${F_IMAGE_TRUNC_GZ} ~/Dropbox/Gecko
+sudo mv ${F_IMAGE_TRUNC_GZ} ${DROPBOX}/Gecko
 
 exit 0
 
