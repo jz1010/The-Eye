@@ -2,11 +2,11 @@
 
 #set -euxo pipefail
 
-TIMEOUT=600 # 20 mins
-SB=/home/pi/sb_production
+SB=${SB:-/home/pi/sb_production}
 
 while true; do
     cd ${SB}
-    git pull
-    python gecko.py --demo --timeout ${TIMEOUT}
+    sudo git pull
+    sudo chown -R pi:pi ${SB}
+    ${SB}/utils/demo
 done

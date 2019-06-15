@@ -19,7 +19,10 @@ elif [ ${TEST_MODE} == "smoke" ]; then
 fi    
 
 if [ ${TEST_MODE} != "nightly_tools" ]; then
-    python ${TEST_ROOT}/gecko.py --demo --timeout_secs ${TIMEOUT_SECS}
+#    python ${TEST_ROOT}/gecko.py --demo --timeout_secs ${TIMEOUT_SECS}
+    export TIMEOUT_SECS
+    export SB=${DVROOT}
+    ${DVROOT}/utils/demo 
 fi
 
 

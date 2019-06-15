@@ -1,0 +1,9 @@
+#!/bin/bash
+
+#set -euxo pipefail
+
+TIMEOUT_SECS=${TIMEOUT_SECS:-600} # 20 mins
+SB=/home/pi/sb_production
+
+cd ${SB}
+python gecko.py --demo --timeout ${TIMEOUT_SECS}
