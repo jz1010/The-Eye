@@ -64,8 +64,7 @@ class gecko_eye_t(object):
 
         # Harvest and validate the arguments
         self.cfg_db['AUTOBLINK'] = (int(args.autoblink) != 0)
-        if self.EYE_SELECT is None:
-            self.EYE_SELECT = args.eye_select
+        self.EYE_SELECT = args.eye_select
 
         if args.eye_shape not in ["None"]:
             self.cfg_db[self.EYE_SELECT]['eye.shape'] = args.eye_shape
@@ -126,15 +125,15 @@ class gecko_eye_t(object):
 #		'eye.shape': 'hack_graphics/cyclops-eye.svg',                
 #		'eye.shape': 'hack_graphics/dragon-eye.svg',
 		'eye.shape': 'hack_graphics/gecko-eye_0.svg',                
-		'iris.art': 'hack_graphics/hack.jpg',
+		'iris.art': 'hack_graphics/iris.jpg',
 #		'iris.art': 'hack_graphics/dragon-iris.jpg',                
 		'lid.art': 'hack_graphics/lid.png',
 #		'sclera.art': 'hack_graphics/dragon-sclera.png',
 #		'sclera.art': 'hack_graphics/dragon-iris.jpg'
 #		'sclera.art': 'hack_graphics/gecko_s_eye_by_mchahine_d2en705-fullview.jpg'
-                'sclera.art': 'hack_graphics/leopard-gecko-3381555_960_720.jpg',
-
-                'sclera.art': 'hack_graphics/Ds4CWFgV4AAlhWK.jpg_large.jpg',                
+#                'sclera.art': 'hack_graphics/leopard-gecko-3381555_960_720.jpg',
+#                'sclera.art': 'hack_graphics/Ds4CWFgV4AAlhWK.jpg_large.jpg',
+                'sclera.art': 'hack_graphics/sclera.jpg',
 		 }           
         }
         

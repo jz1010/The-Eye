@@ -10,7 +10,8 @@ LID_ART=${LID_ART:-"None"}
 SCLERA_ART=${SCLERA_ART:-"None"}
 
 set +e
-#sudo pkill python
+sudo pkill wrap_demo
+sudo pkill python
 set -e
 
 #sleep 1
