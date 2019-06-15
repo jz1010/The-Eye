@@ -4,6 +4,7 @@
 # Test mode is specifed in the Jenkins Build->Execute shell->Command box.
 
 set -euxo pipefail
+
 export DVROOT=`dv_root`
 
 if [ $# -eq 0 ]; then
@@ -19,10 +20,15 @@ elif [ ${TEST_MODE} == "smoke" ]; then
 fi    
 
 if [ ${TEST_MODE} != "nightly_tools" ]; then
-#    python ${TEST_ROOT}/gecko.py --demo --timeout_secs ${TIMEOUT_SECS}
+    # Use case production
     export TIMEOUT_SECS
     export SB=${DVROOT}
-    ${DVROOT}/utils/demo 
+    ${DVROOT}/utils/demo
+
+    # Use case development
+    export EYE_SELECT="hack"
+    ${DVROOT}/run
+#    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
 fi
 
 

@@ -2,6 +2,8 @@
 
 set -euxo pipefail
 
+DVROOT=${DVROOT:-.}
+
 AUTOBLINK=${AUTOBLINK:-1}
 EYE_SELECT=${EYE_SELECT:-"dragon"}
 EYE_SHAPE=${EYE_SHAPE:-"None"}
@@ -27,7 +29,7 @@ ARGS="--autoblink ${AUTOBLINK} \
       --sclera_art ${SCLERA_ART} \
      "
 
-CMD="python ./gecko.py \
+CMD="python ${DVROOT}/gecko.py \
      ${ARGS} \
      $* \
      "
@@ -38,3 +40,4 @@ bash -c "${CMD}"
 #PID=$!
 #sudo kill -9 ${PID}
 
+exit 0
