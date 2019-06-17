@@ -1,7 +1,8 @@
-#!/usr/bin/python
+#!/bin/env pythong
 
 import os
 import sys
+import re
 import Adafruit_ADS1x15
 import math
 import pi3d
@@ -12,7 +13,9 @@ from svg.path import Path, parse_path
 from xml.dom.minidom import parse
 from gfxutil import *
 import argparse
+from evdev import InputDevice, ecodes
 from joystick import joystick_t
+from keyboard import keyboard_t
 from debug import leak_check
 
 # These need to be globals in order to avoid a memory leak
@@ -26,6 +29,8 @@ BLINK_NONE = 0
 BLINK_CLOSING = 1
 BLINK_OPENING = 2
 
+INPUT_DEV_RETRY_SECS = 5
+
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
         self.debug = debug
@@ -36,6 +41,13 @@ class gecko_eye_t(object):
         elif self.EYE_SELECT is None:
             self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
 
+        self.keyboard = None
+        self.joystick = None
+
+        # Periodically check for new devices connected
+        self.keyboard_last_retry = 0
+        self.joystick_last_retry = 0
+        
         self.parse_args()
         self.init()
 
@@ -143,17 +155,65 @@ class gecko_eye_t(object):
         self.load_textures()
         self.init_geometry()
         self.init_globals()
+        self.init_keyboard()
         self.init_joystick()
-        
+
+    def find_input_device(self,input_name=None):
+        if input_name is None:
+            return None
+
+        for i in range(10):
+            device_name = '/dev/input/event{}'.format(i)
+            if os.path.exists(device_name):
+                print ('scanning device: {}'.format(device_name))
+                try:
+                    device = InputDevice(device_name)
+                except:
+                    device = None
+                if device is not None:
+                    print ('device: {}'.format(device))
+                    if input_name in ['keyboard'] and \
+                       re.search(r'keyboard',device.name,re.IGNORECASE):
+                        return device_name
+                    elif input_name in ['joystick'] and \
+                         re.search(r'extreme 3d',device.name,re.IGNORECASE):
+                        return device_name
+        return None
+                        
     def init_joystick(self):
-        #self.joystick = joystick_t()
-        self.joystick = None
-        self.joystick_polls = 0
+        if self.joystick is None:
+            now = time.time()
+            if now - self.joystick_last_retry <= INPUT_DEV_RETRY_SECS:
+                return
+
+            self.joystick_last_retry = now
+            
+            device_name = self.find_input_device('joystick')
+            self.joystick = joystick_t(joystick_dev=device_name)
+            self.joystick_polls = 0
         
-        # Set up state kept from events sampled from joystick
-        self.event_blink = 1
-        self.update_eye_events(reset=True)
-        
+            # Set up state kept from events sampled from joystick
+            self.event_blink = 1
+            self.update_eye_events(reset=True)
+        else:
+            if not self.joystick.get_status():
+                self.joystick = None
+
+    def init_keyboard(self):
+        if self.keyboard is None:
+            now = time.time()
+            if now - self.keyboard_last_retry <= INPUT_DEV_RETRY_SECS:
+                return
+
+            self.keyboard_last_retry = now
+
+            device_name = self.find_input_device('keyboard')
+            self.keyboard = keyboard_t(device_name)
+        else:
+            if not self.keyboard.get_status():
+                self.keyboard = None
+            
+
     def init_svg(self):
         # Load SVG file, extract paths & convert to point lists --------------------
 
@@ -304,11 +364,9 @@ class gecko_eye_t(object):
         self.init_geometry_eyelids()
         self.init_geometry_sclera()
 
+        
     def init_globals(self):
         # Init global stuff --------------------------------------------------------
-
-        #self.mykeys = pi3d.Keyboard() # For capturing key presses
-        self.mykeys = None
         
         self.startX       = random.uniform(-30.0, 30.0)
         n = math.sqrt(900.0 - self.startX * self.startX)
@@ -367,6 +425,7 @@ class gecko_eye_t(object):
 		do_exit |= self.split(startValue, midValue, duration, range)
                 if not do_exit:
 		    do_exit |= self.split(midValue  , endValue, duration, range)
+                self.init_keyboard()
 	else: # No more subdivisons, do iris motion...
 		dv = endValue - startValue
 		while not do_exit:
@@ -378,6 +437,7 @@ class gecko_eye_t(object):
 			if   v < self.cfg_db['PUPIL_MIN']: v = self.cfg_db['PUPIL_MIN']
 			elif v > self.cfg_db['PUPIL_MAX']: v = self.cfg_db['PUPIL_MAX']
 			self.frame(v) # Draw frame w/interim pupil scale value
+                       
                         self.do_joystick()
                         do_exit |= self.keyboard_sample()
 
@@ -572,14 +632,18 @@ class gecko_eye_t(object):
         self.lowerEyelid.draw()
 
     def keyboard_sample(self):
-        if self.mykeys is not None:
-            k = self.mykeys.read()
-            if k==27:
-                self.mykeys.close()
-                #self.eye_context_next = None
-                return True
+        self.init_keyboard()
+        if self.keyboard is not None:
+            events = self.keyboard.sample()
+            for event in events:
+                print ('event: {}'.format(event))
+                if event.type == ecodes.EV_KEY:
+                    print (event)
+                    if event.code == 1 and event.value == 1: # Escape key
+                        return True
+                    
         return False
-
+    
     def update_eye_events(self,reset=False):
         if reset:
             self.eye_context_next = None
@@ -646,6 +710,7 @@ class gecko_eye_t(object):
         self.update_eye_events()
 
     def do_joystick(self):
+        self.init_joystick()
         if self.joystick is not None:
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
@@ -659,6 +724,7 @@ class gecko_eye_t(object):
         last_time_sec = time.time()
         while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
+                raise
 		v = adcValue[self.cfg_db['PUPIL_IN']]
 		if self.cfg_db['PUPIL_IN_FLIP']: v = 1.0 - v
 		# If you need to calibrate PUPIL_MIN and MAX,

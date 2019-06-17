@@ -6,10 +6,16 @@ import time
 import os
 
 class joystick_t(object):
-    def __init__(self,debug=False):
+    def __init__(self,joystick_dev='/dev/input/event1',debug=False):
+        self.joystick_dev = joystick_dev
         self.debug = debug
-        self.joystick = InputDevice('/dev/input/event0')
-        self.name = self.joystick
+        try:
+            print ('Called init joystick for device: {}'.format(self.joystick_dev))
+            self.joystick = InputDevice(self.joystick_dev)
+        except:
+            self.joystick = None
+            print ('joystick init failed')
+            
         
         #self.name = self.joystick.get_name()
 #       self.num_axes = self.joystick.get_numaxes()
@@ -34,24 +40,37 @@ class joystick_t(object):
         }
 
     def info(self):
-        print ('joystick: {}'.format(self.name))
+        print ('joystick: {}'.format(self.joystick))
         print( "Number of axes: {}".format(self.num_axes) )
         print( "Number of buttons: {}".format(self.num_buttons) )
         print( "Number of hats: {}".format(self.num_hats) )
 
+    def get_status(self):
+        return (self.joystick is not None)
+        
     def sample_nonblocking(self):
-        sample = False
         gecko_events = []
-
+        if self.joystick is None:
+            return gecko_events
+        
+        sample = False
         events = []
         while True:
-            event = self.joystick.read_one()
+            try:
+                event = self.joystick.read_one()
+            except:
+                self.joystick = None
+                event = None
+                
             if event is None:
                 break
             events.append(event)
             
         for event in events:
             if event.type in [ecodes.EV_KEY]:
+                if event.code not in self.buttons:
+                    continue # unhandled event
+                
                 button_name = self.buttons[event.code]['button']
                 button_val = event.value
                 #print ('button: {} state: {}'.format(button_name,button_val))
