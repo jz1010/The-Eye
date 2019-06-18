@@ -3,13 +3,11 @@
 import os
 import sys
 import re
-#import Adafruit_ADS1x15
 import math
 import random
 import time
 import argparse
 import pi3d
-#from svg.path import Path, parse_path
 from xml.dom.minidom import parse
 from gfxutil import *
 from evdev import InputDevice, ecodes
@@ -46,6 +44,16 @@ class gecko_eye_t(object):
         # Periodically check for new devices connected
         self.keyboard_last_retry = 0
         self.joystick_last_retry = 0
+
+        # Other timer initialization
+        self.nxt_emotion_sec = 0
+        self.last_v = 0.5
+        self.event_holdDuration = None
+        self.event_moveDuration = None
+        self.event_overrideBlinkDurationClose = None
+        self.event_overrideBlinkDurationOpen = None        
+        self.event_doBlink = False
+        self.fsm_angry = None
         
         self.parse_args()
         self.init()
@@ -102,24 +110,51 @@ class gecko_eye_t(object):
             #'TRACKING'        = True  # If True, eyelid tracks pupil
             'TRACKING': True,  # If True, eyelid tracks pupil
             'PUPIL_SMOOTH': 16,    # If > 0, filter input from PUPIL_IN
-            'PUPIL_MIN': 0.0,   # Lower analog range from PUPIL_IN
-            'PUPIL_MAX': 1.0,   # Upper "
-            #PUPIL_MAX       = 2.0   # Upper "
-            #PUPIL_MAX       = 0.5   # Upper "
+            'pupil_min': 0.0,   # Lower analog range from PUPIL_IN            
+            'pupil_max': 1.0,   # Upper "
+            'pupil_normal': 0.5,   # Normal pupil dilation
             'AUTOBLINK' : True,  # If True, eye blinks autonomously
             #AUTOBLINK       = False  # If True, eye blinks autonomously
+
+            'blink_angry_duration_close_min_sec' : 0.10, # original: 0.06
+            'blink_angry_duration_close_max_sec' : 0.30, # original: 0.12
+            'blink_angry_duration_open_min_sec' : 0.06, # original: 0.06
+            'blink_angry_duration_open_max_sec' : 0.12, # original: 0.12
+            'blink_angry_interval_min_sec' : 1.0, # original: 3.0
+            'blink_angry_interval_range_sec' : 3.0, # original: 4.0
+            
             'blink_duration_close_min_sec' : 0.5, # original: 0.06
             'blink_duration_close_max_sec' : 1.5, # original: 0.12
             'blink_duration_open_min_sec' : 0.5, # original: 0.06
             'blink_duration_open_max_sec' : 1.5, # original: 0.12
+            
             'blink_interval_min_sec' : 15.0, # original: 3.0
             'blink_interval_range_sec' : 4.0, # original: 4.0
+            
             'blink_duration_user_min_sec' : 0.035, # caused by Joystick 
             'blink_duration_user_max_sec' : 0.06, # caused by Joystick
-            'move_duration_min_sec' : 1.1, # original: 0.075
-            'move_duration_max_sec' : 3.0, # original: 0.175            
-            'hold_duration_min_sec' : 1.1, # original: 0.1
-            'hold_duration_max_sec' : 3.0, # original: 1.1
+            
+            'pupil_auto_expand_sec' : 12.0,
+            'pupil_auto_contract_sec' : 4.0,
+            
+            'pupil_squint_sec' : 4.0,
+            'pupil_dilate_sec' : 4.0,
+
+            'move_angry_duration_min_sec' : 0.075, # original: 0.075
+            'move_angry_duration_max_sec' : 0.175, # original: 0.175
+            
+            'hold_angry_duration_min_sec' : 0.1, # original: 0.1
+            'hold_angry_duration_max_sec' : 1.1, # original: 1.1
+            
+            'move_duration_min_sec' : 1.7, # original: 0.075
+            'move_duration_max_sec' : 4.0, # original: 0.175
+            
+            'hold_duration_min_sec' : 2.1, # original: 0.1
+            'hold_duration_max_sec' : 4.0, # original: 1.1
+
+            'move_duration_joystick_sec' : 0.12,
+            'emotion_interval_sec' : 8.0, # Interval between next emotion
+            
             'cyclops': {
 		'eye.shape': 'graphics/cyclops-eye.svg',
 		'iris.art': 'graphics/iris.jpg',
@@ -156,6 +191,7 @@ class gecko_eye_t(object):
         self.init_globals()
         self.init_keyboard()
         self.init_joystick()
+        self.init_emotion()
 
     def find_input_device(self,input_name=None):
         if input_name is None:
@@ -212,7 +248,6 @@ class gecko_eye_t(object):
             if not self.keyboard.get_status():
                 self.keyboard = None
             
-
     def init_svg(self):
         # Load SVG file, extract paths & convert to point lists --------------------
 
@@ -433,8 +468,8 @@ class gecko_eye_t(object):
                         if self.pupil_event_queued: break
                         if self.eye_context_next is not None: break                        
 			v = startValue + dv * dt / duration
-			if   v < self.cfg_db['PUPIL_MIN']: v = self.cfg_db['PUPIL_MIN']
-			elif v > self.cfg_db['PUPIL_MAX']: v = self.cfg_db['PUPIL_MAX']
+			if   v < self.cfg_db['pupil_min']: v = self.cfg_db['pupil_min']
+			elif v > self.cfg_db['pupil_max']: v = self.cfg_db['pupil_max']
 			self.frame(v) # Draw frame w/interim pupil scale value
                        
                         self.do_joystick()
@@ -446,12 +481,12 @@ class gecko_eye_t(object):
     def frame(self,p):
 	self.DISPLAY.loop_running()
 
-	now = time.time()
-	dt  = now - self.startTime
+	now_sec = time.time()
+	dt  = now_sec - self.startTime
 
 	self.frames += 1
-#	if(now > beginningTime):
-#		print(frames/(now-beginningTime))
+#	if(now_sec > beginningTime):
+#		print(frames/(now_sec-beginningTime))
 
 	if self.cfg_db['JOYSTICK_X_IN'] >= 0 and self.cfg_db['JOYSTICK_Y_IN'] >= 0:
             raise
@@ -465,7 +500,7 @@ class gecko_eye_t(object):
 	else :
             if self.isMoving == True: # Movement/re-positioning is ongoing
                 if dt <= self.moveDuration:
-                    scale        = (now - self.startTime) / self.moveDuration
+                    scale        = (now_sec - self.startTime) / self.moveDuration
                     # Ease in/out curve: 3*t^2-2*t^3
                     scale = 3.0 * scale * scale - 2.0 * scale * scale * scale
                     self.curX         = self.startX + (self.destX - self.startX) * scale
@@ -475,10 +510,13 @@ class gecko_eye_t(object):
                     self.startY       = self.destY
                     self.curX         = self.destX
                     self.curY         = self.destY
-                    #self.holdDuration = random.uniform(0.15, 1.7)
-                    self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
-                                                       self.cfg_db['hold_duration_max_sec'])
-                    self.startTime    = now
+                    if self.event_holdDuration is not None:
+                        self.holdDuration = self.event_holdDuration
+                        #self.event_holdDuration = None
+                    else:
+                        self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
+                                                           self.cfg_db['hold_duration_max_sec'])
+                    self.startTime    = now_sec
                     self.isMoving     = False
             elif self.event_eye_queued: # Joystick control has priority
                 if self.eye_event in ['eye_up']:
@@ -516,22 +554,27 @@ class gecko_eye_t(object):
                     self.destY = -n
                 else:
                     raise
-                self.moveDuration = 0.12 # BOZO: Update this to a symbolic constant
-                self.startTime    = now
+                if self.event_moveDuration is not None:
+                    self.moveDuration = self.event_moveDuration
+                    #self.event_moveDuration = None
+                else:
+                    self.moveDuration = self.cfg_db['move_duration_joystick_sec']
+                self.startTime    = now_sec
                 self.isMoving     = True
                 self.update_eye_events(reset=True)
-            elif True: # Autonomous eye position
+            elif True:
                 if dt >= self.holdDuration:
-                    self.destX        = random.uniform(-30.0, 30.0)
-                    n            = math.sqrt(900.0 - self.destX * self.destX)
-                    self.destY        = random.uniform(-n, n)
-                    # Movement is slower in this version because
-                    # the WorldEye display is big and the eye
-                    # should have some 'mass' to it.
-                    #self.moveDuration = random.uniform(0.12, 0.35)
-                    self.moveDuration = random.uniform(self.cfg_db['move_duration_min_sec'],
-                                                       self.cfg_db['move_duration_max_sec'])
-                    self.startTime    = now
+                    if self.fsm_angry is None:
+                        self.destX = random.uniform(-30.0, 30.0)
+                        n = math.sqrt(900.0 - self.destX * self.destX)
+                        self.destY = random.uniform(-n, n)
+                    if self.event_moveDuration is not None:
+                        self.moveDuration = self.event_moveDuration
+                        #self.event_moveDuration = None
+                    else:
+                        self.moveDuration = random.uniform(self.cfg_db['move_duration_min_sec'],
+                                                           self.cfg_db['move_duration_max_sec'])
+                    self.startTime    = now_sec
                     self.isMoving     = True
 
 
@@ -546,40 +589,52 @@ class gecko_eye_t(object):
 
 	# Eyelid WIP
 
-	if self.cfg_db['AUTOBLINK'] and (now - self.timeOfLastBlink) >= self.timeToNextBlink:
-		# Similar to movement, eye blinks are slower in this version
-		self.timeOfLastBlink = now
-		duration        = random.uniform(self.cfg_db['blink_duration_close_min_sec'],
-                                                 self.cfg_db['blink_duration_close_max_sec'])
-		if self.blinkState != BLINK_CLOSING: # infer BLINK_NONE (or BLINK_OPENING?)
-			self.blinkState     = BLINK_CLOSING 
-			self.blinkStartTime = now
-			self.blinkDuration  = duration
-                self.timeToNextBlink = duration * self.cfg_db['blink_interval_min_sec'] + \
-                    random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
+	if self.event_doBlink or \
+           (self.cfg_db['AUTOBLINK'] and \
+            (now_sec - self.timeOfLastBlink) >= self.timeToNextBlink):
+            self.event_doBlink = False
+	    # Similar to movement, eye blinks are slower in this version
+	    self.timeOfLastBlink = now_sec
+            if self.event_overrideBlinkDurationClose is not None:
+                duration = self.event_overrideBlinkDurationClose
+                #self.event_overrideBlinkDurationClose = None
+            else:
+		duration = random.uniform(self.cfg_db['blink_duration_close_min_sec'],
+                                          self.cfg_db['blink_duration_close_max_sec'])
+	    if self.blinkState != BLINK_CLOSING: # infer BLINK_NONE (or BLINK_OPENING?)
+		self.blinkState     = BLINK_CLOSING 
+		self.blinkStartTime = now_sec
+		self.blinkDuration  = duration
+            self.timeToNextBlink = duration * self.cfg_db['blink_interval_min_sec'] + \
+                random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
 
 	if self.blinkState: # Eye currently winking/blinking (BLINK_CLOSING or BLINK_OPENING)
-		# Check if blink time has elapsed...
-		if (now - self.blinkStartTime) >= self.blinkDuration:
-			# Yes...increment blink state, unless...
-			if (self.blinkState == BLINK_CLOSING and # Enblinking and...
-                            self.event_blink == 0):
-				# Don't advance yet; eye is held closed
-				pass
-			else:
-			    self.blinkState += 1
-			    if self.blinkState > BLINK_OPENING:
-				self.blinkState = BLINK_NONE # NOBLINK
-			    else: # infer BLINK_OPENING
-                                assert (self.blinkState == BLINK_OPENING)
-		                duration = random.uniform(self.cfg_db['blink_duration_open_min_sec'],
-                                                          self.cfg_db['blink_duration_open_max_sec'])
-		                self.blinkDuration = duration
-				self.blinkStartTime = now
+	    # Check if blink time has elapsed...
+	    if (now_sec - self.blinkStartTime) >= self.blinkDuration:
+		# Yes...increment blink state, unless...
+		if (self.blinkState == BLINK_CLOSING and # Enblinking and...
+                    self.event_blink == 0):
+		    # Don't advance yet; eye is held closed
+		    pass
+		else:
+		    self.blinkState += 1
+		    if self.blinkState > BLINK_OPENING:
+			self.blinkState = BLINK_NONE # NOBLINK
+		    else: # infer BLINK_OPENING
+                        assert (self.blinkState == BLINK_OPENING)
+                        if self.event_overrideBlinkDurationOpen is not None:
+                            duration = self.event_overrideBlinkDurationOpen
+                            #self.event_overrideBlinkDurationOpen = None
+                        else:
+		            duration = \
+                                random.uniform(self.cfg_db['blink_duration_open_min_sec'],
+                                               self.cfg_db['blink_duration_open_max_sec'])
+		            self.blinkDuration = duration
+			    self.blinkStartTime = now_sec
 	else: # infer BLINK_NONE
             if self.event_blink == 0:
                 self.blinkState     = BLINK_CLOSING
-                self.blinkStartTime = now
+                self.blinkStartTime = now_sec
                 self.blinkDuration  = random.uniform(self.cfg_db['blink_duration_user_min_sec'],
                                                      self.cfg_db['blink_duration_user_max_sec'])
 
@@ -591,7 +646,7 @@ class gecko_eye_t(object):
 		self.trackingPos = (self.trackingPos * 3.0 + n) * 0.25
 
 	if self.blinkState: # blink opening/closing
-		n = (now - self.blinkStartTime) / self.blinkDuration
+		n = (now_sec - self.blinkStartTime) / self.blinkDuration
 		if n > 1.0: n = 1.0
 		if self.blinkState == BLINK_OPENING: n = 1.0 - n
 	else: # infer BLINK_NONE, Not blinking
@@ -656,6 +711,10 @@ class gecko_eye_t(object):
                     print (event)
                     if event.code == 1 and event.value == 1: # Escape key
                         return True
+                elif True: # other keys here
+                    pass
+                else:
+                    pass
                     
         return False
     
@@ -719,7 +778,7 @@ class gecko_eye_t(object):
 
     def run(self):
         do_exit = False
-        last_time_sec = time.time()
+        last_eye_art_sec = time.time()
         while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
                 raise
@@ -737,9 +796,11 @@ class gecko_eye_t(object):
 			     self.cfg_db['PUPIL_SMOOTH'])
                 self.frame(v)
             else: # Fractal auto pupil scale
-                if self.eye_context_next is not None:
+                # Priority mux
+                if self.eye_context_next is not None: # Transition to new eye
                     break
-                elif self.pupil_event_queued:
+                
+                elif self.pupil_event_queued:  # Joystick control of pupil
                     self.pupil_event_queued = False
                     self.eye_event_last = self.event_pupil
                     if self.event_pupil in ['pupil_widen']:
@@ -750,17 +811,27 @@ class gecko_eye_t(object):
                         raise
                     duration = 0.25
                 else:
-                    v = random.random()
-                    duration = 4.0
+                    emotion_selected = self.emotion_select()
+                    if emotion_selected is not None:
+                        (v,duration) = emotion_selected()
+                        if v is None:
+                            v = self.last_v
+                            duration = 0.0
+                        self.last_v = v
+                    else: # Autonomous mode
+                        v = self.last_v
+                        #duration = 0.1
+                        #v = random.random()
+                        duration = self.cfg_db['pupil_auto_expand_sec']
                 do_exit |= self.split(self.currentPupilScale, v, duration, 1.0)
                 #leak_check()                
                 
 
             self.currentPupilScale = v
             #do_exit = self.keyboard_sample()
-            now_time_sec = time.time()
+            now_sec = time.time()
             eye_tenure_sec = self.cfg_db['blink_interval_min_sec'] * 2 # about 2 blinks
-            if int(now_time_sec - last_time_sec) > eye_tenure_sec:
+            if int(now_sec - last_eye_art_sec) > eye_tenure_sec:
                 do_exit |= True
     
             
@@ -785,13 +856,160 @@ class gecko_eye_t(object):
         del self.parser
         self.parser = None
         pass
+
+    def init_emotion(self):
+        self.emotions = [
+            self.emotion_normal,
+            self.emotion_random_looking,
+            self.emotion_dilated_pupil,
+            self.emotion_squint_pupil,
+            self.emotion_wandering,
+            self.emotion_angry,
+            self.emotion_staring_ahead
+        ]
+        self.emotions = [None]
+        self.emotions = [self.emotion_squint_pupil]
+        self.emotions = [self.emotion_dilated_pupil]
+        self.emotions = [
+            self.emotion_dilated_pupil,
+            self.emotion_squint_pupil,
+            self.emotion_normal,
+            self.emotion_staring_ahead            
+        ]
+        self.emotions = [self.emotion_staring_ahead]
+        self.emotions = [self.emotion_angry]
+        
+        self.emotion_idx = 0
+        self.shuffled_emo = self.emotions
+        
+    def emotion_select(self):
+        now_sec = time.time()
+        if now_sec < self.nxt_emotion_sec:
+            return None
+
+        if self.emotion_idx == 0:
+            random.shuffle(self.emotions)
+
+        self.fsm_angry = None
+        selected_emotion = self.shuffled_emo[self.emotion_idx]
+
+        if self.fsm_angry is None:
+            self.nxt_emotion_sec = now_sec + self.cfg_db['emotion_interval_sec']
+        else:
+            self.nxt_emotion_sec = self.cfg_db['emotion_interval_sec'] / 4
+        
+        self.emotion_idx += 1
+        self.emotion_idx %= len(self.emotions)
+
+        return selected_emotion
     
+    def emotion_normal(self):
+        print ('emotion_normal')
+        v = self.cfg_db['pupil_normal']
+        duration = self.cfg_db['pupil_dilate_sec']
+        return (v,duration)        
+
+    def emotion_random_looking(self):
+        print ('emotion_random_looking')
+        return (None,None)        
+
+    def emotion_dilated_pupil(self):
+        print ('emotion_dilated_pupil')
+        v = self.cfg_db['pupil_max']
+        duration = self.cfg_db['pupil_dilate_sec']
+        return (v,duration)        
+    
+    def emotion_squint_pupil(self):
+        print ('emotion_squint_pupil')
+        v = self.cfg_db['pupil_min']
+        duration = self.cfg_db['pupil_squint_sec']
+        return (v,duration)
+
+    def emotion_wandering(self):
+        print ('emotion_wandering')
+        return (None,None)
+
+    def emotion_angry(self):
+        print ('emotion_angry')
+        if self.fsm_angry is None:
+            self.fsm_states = ['focused','alarmed']
+            self.fsm_angry = random.choice(self.fsm_states)
+
+        if self.fsm_angry in ['focused']:
+            v = self.cfg_db['pupil_min']
+            duration = self.cfg_db['pupil_squint_sec']
+            
+            focused_dirs = [
+                'eye_southwest',
+                'eye_southeast',
+                'eye_down'
+            ]
+            
+            self.eye_event = random.choice(focused_dirs)
+            print ('angry dir: {}'.format(self.eye_event))            
+            self.event_eye_queued = True
+            #self.event_moveDuration = self.cfg_db['move_angry_duration_min_sec']
+            self.event_moveDuration = 0.25
+            self.event_holdDuration = 2.0
+            self.event_overrideBlinkDurationClose = \
+                random.uniform(self.cfg_db['blink_angry_duration_close_min_sec'],
+                               self.cfg_db['blink_angry_duration_close_max_sec'])
+        
+            self.event_overrideBlinkDurationOpen = \
+                random.uniform(self.cfg_db['blink_angry_duration_open_min_sec'],
+                               self.cfg_db['blink_angry_duration_open_max_sec'])
+            self.event_doBlink = True            
+        elif self.fsm_angry in ['alarmed']:
+            v = self.cfg_db['pupil_max']
+            duration = self.cfg_db['pupil_dilate_sec']
+            self.event_overrideBlinkDurationClose = \
+                random.uniform(self.cfg_db['blink_angry_duration_close_min_sec'],
+                               self.cfg_db['blink_angry_duration_close_max_sec'])
+        
+            self.event_overrideBlinkDurationOpen = \
+                random.uniform(self.cfg_db['blink_angry_duration_open_min_sec'],
+                               self.cfg_db['blink_angry_duration_open_max_sec'])
+            self.event_moveDuration = random.uniform(self.cfg_db['move_angry_duration_min_sec'],
+                                                     self.cfg_db['move_angry_duration_max_sec'])
+        
+            self.event_holdDuration = random.uniform(self.cfg_db['hold_angry_duration_min_sec'],
+                                                     self.cfg_db['hold_angry_duration_max_sec'])
+            self.event_doBlink = True
+        else:
+            raise
+
+        self.fsm_states = ['focused','alarmed']
+        self.fsm_angry_nxt = random.choice(self.fsm_states)
+        self.fsm_angry = self.fsm_angry_nxt
+        print ('fsm_angry: {}'.format(self.fsm_angry))
+        
+        #return (None,None)        
+        
+        return (v,duration)
+    
+
+    def emotion_staring_ahead(self):
+        print ('emotion_staring_ahead')
+        staring_head_dirs = [
+            'eye_northeast',
+            'eye_southeast',
+            'eye_right'
+        ]
+        
+        self.eye_event = random.choice(staring_head_dirs)
+        print ('staring head dir: {}'.format(self.eye_event))
+        self.event_eye_queued = True
+        self.event_moveDuration = self.cfg_db['move_duration_min_sec']
+        self.event_holdDuration = 20.0
+        
+        return (None,None)        
+
         
 if __name__ == "__main__":
     eye_contexts = ['cyclops','hack','dragon']
     eye_context_ptr = 0
     eye_context = None
-    time_first = time.time()    
+    time_first_sec = time.time()    
     timeout = False
     while True and not timeout:
         leak_check()
@@ -803,8 +1021,8 @@ if __name__ == "__main__":
         else:
             eye_context = gecko_eye.run()
         if gecko_eye.cfg_db['timeout_secs'] is not None:
-            time_now = time.time()
-            if time_now > time_first + gecko_eye.cfg_db['timeout_secs']:
+            now_sec = time.time()
+            if now_sec > time_first_sec + gecko_eye.cfg_db['timeout_secs']:
                 timeout = True
             
         gecko_eye.shutdown()
