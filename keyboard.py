@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from evdev import InputDevice, categorize, ecodes
+from evdev import InputDevice, ecodes
 from select import select
 
 class keyboard_t(object):

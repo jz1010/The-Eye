@@ -3,16 +3,15 @@
 import os
 import sys
 import re
-import Adafruit_ADS1x15
+#import Adafruit_ADS1x15
 import math
-import pi3d
 import random
-import thread
 import time
-from svg.path import Path, parse_path
+import argparse
+import pi3d
+#from svg.path import Path, parse_path
 from xml.dom.minidom import parse
 from gfxutil import *
-import argparse
 from evdev import InputDevice, ecodes
 from joystick import joystick_t
 from keyboard import keyboard_t
@@ -482,23 +481,39 @@ class gecko_eye_t(object):
                     self.startTime    = now
                     self.isMoving     = False
             elif self.event_eye_queued: # Joystick control has priority
-                if self.event_eye_up:
+                if self.eye_event in ['eye_up']:
                     self.destX = 0.0
                     n = math.sqrt(900.0 - self.destX * self.destX)
                     self.destY = n
-                elif self.event_eye_down:
+                elif self.eye_event in ['eye_down']:
                     self.destX = 0.0                    
                     n = math.sqrt(900.0 - self.destX * self.destX)
                     self.destY = -n
-                elif self.event_eye_left:
+                elif self.eye_event in ['eye_left']:
                     self.destX = 30.0
                     self.destY = 0.0
-                elif self.event_eye_right:
+                elif self.eye_event in ['eye_right']:
                     self.destX = -30.0
                     self.destY = 0.0
-                elif self.event_eye_center:
+                elif self.eye_event in ['eye_center']:
                     self.destX = 0.0
                     self.destY = 0.0
+                elif self.eye_event in ['eye_northeast']:
+                    self.destX = -30.0
+                    n = math.sqrt(900.0)
+                    self.destY = n
+                elif self.eye_event in ['eye_northwest']:
+                    self.destX = 30.0
+                    n = math.sqrt(900.0)
+                    self.destY = n
+                elif self.eye_event in ['eye_southeast']:
+                    self.destX = -30.0
+                    n = math.sqrt(900.0)
+                    self.destY = -n
+                elif self.eye_event in ['eye_southwest']:
+                    self.destX = 30.0
+                    n = math.sqrt(900.0)
+                    self.destY = -n
                 else:
                     raise
                 self.moveDuration = 0.12 # BOZO: Update this to a symbolic constant
@@ -646,22 +661,14 @@ class gecko_eye_t(object):
     
     def update_eye_events(self,reset=False):
         if reset:
-            self.eye_context_next = None
-            self.event_eye_up = False
-            self.event_eye_down = False
-            self.event_eye_left = False
-            self.event_eye_right = False
-            self.event_eye_center = False
-            self.event_eye_queued = False
+            self.eye_event = None
             self.eye_event_last = None
+            self.eye_context_next = None
+            self.event_eye_queued = False
+            
             self.pupil_event_queued = False
             self.pupil_event_last = None
-            
-        self.event_eye_joystick = self.event_eye_up or \
-                                  self.event_eye_down or \
-                                  self.event_eye_left or \
-                                  self.event_eye_right or \
-                                  self.event_eye_center
+        
 
     def set_eye_event(self,eye_event):
         if self.event_eye_queued:
@@ -669,20 +676,10 @@ class gecko_eye_t(object):
 
         if eye_event is self.eye_event_last:
             return
-        
-        if eye_event in ['eye_up']:
-            self.event_eye_up = True
-        elif eye_event in ['eye_down']:
-            self.event_eye_down = True                
-        elif eye_event in ['eye_left']:
-            self.event_eye_left = True
-        elif eye_event in ['eye_right']:
-            self.event_eye_right = True
-        elif eye_event in ['eye_center']:
-            self.event_eye_center = True
 
+        self.eye_event_last = self.eye_event
+        self.eye_event = eye_event
         self.event_eye_queued = True
-        self.eye_event_last = eye_event
         
     def handle_events(self,events):
         if len(events) == 0:
@@ -690,7 +687,8 @@ class gecko_eye_t(object):
         
         for event in events:
             print ('event: {}'.format(event))
-            if event in ['eye_up','eye_down','eye_left','eye_right','eye_center']:
+            if event in ['eye_up','eye_down','eye_left','eye_right','eye_center',
+                         'eye_northeast', 'eye_northwest', 'eye_southeast', 'eye_southwest']:
                 self.set_eye_event(event)
             elif event in ['pupil_widen','pupil_narrow']:
                 if not self.pupil_event_queued:
@@ -703,7 +701,7 @@ class gecko_eye_t(object):
             elif event in ['eye_context_11']:
                 self.eye_context_next = 'cyclops'
             elif event in ['eye_context_12']:
-                self.eye_context_next = 'hack'                
+                self.eye_context_next = 'hack'
             else:
                 print ('Unhandled event: {}'.format(event))
                 raise

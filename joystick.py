@@ -1,14 +1,12 @@
 #!/usr/bin/python
 
 from evdev import InputDevice, categorize, ecodes
-import sys
-import time
-import os
 
 class joystick_t(object):
     def __init__(self,joystick_dev='/dev/input/event1',debug=False):
         self.joystick_dev = joystick_dev
         self.debug = debug
+        self.eye_direction_last = None
         try:
             print ('Called init joystick for device: {}'.format(self.joystick_dev))
             self.joystick = InputDevice(self.joystick_dev)
@@ -87,6 +85,7 @@ class joystick_t(object):
                 else:
                     pass
             elif event.type in [ecodes.EV_ABS]: # stick handle
+                eye_direction = None
                 total_range = 1024
                 t_lo = total_range / 4
                 t_hi = total_range / 4 * 3
@@ -97,15 +96,17 @@ class joystick_t(object):
                 if event.code in [0]: # stick left/right
                     #print ('ABS_0: {}'.format(event))
                     if event.value >= 0 and event.value < t_lo: # left
-                        gecko_events.append('eye_left')
+                        eye_direction = 'eye_left'
                     elif event.value >= t_hi and event.value <= total_range: # right
-                        gecko_events.append('eye_right')
+                        eye_direction = 'eye_right'
+                    #gecko_events.append(eye_direction)
                 elif event.code in [1]: # stick forward/back
                     #print ('ABS_1: {}'.format(event))
                     if event.value >= 0 and event.value < t_lo: # forward
-                        gecko_events.append('eye_up')
+                        eye_direction = 'eye_up'
                     elif event.value >= t_hi and event.value <= total_range: # back
-                        gecko_events.append('eye_down')
+                        eye_direction = 'eye_down'
+                    #gecko_events.append(eye_direction)                        
                 elif event.code in [5]: # stick twist
                     #print ('ABS_5: {}'.format(event))                                  
                     pass
@@ -129,6 +130,39 @@ class joystick_t(object):
                         raise
                 else:
                     print ('Analog unhandled event: {}'.format(event))
+
+                # Refine eye position
+                if eye_direction is not None:
+                    if self.eye_direction_last in ['eye_up']:
+                        if eye_direction in ['eye_right']:
+                            eye_direction = 'eye_northeast'
+                        elif eye_direction in ['eye_left']:
+                            eye_direction = 'eye_northwest'
+                    elif self.eye_direction_last in ['eye_down']:
+                        if eye_direction in ['eye_right']:
+                            eye_direction = 'eye_southeast'
+                        elif eye_direction in ['eye_left']:
+                            eye_direction = 'eye_southwest'
+                    elif self.eye_direction_last in ['eye_left']:
+                        if eye_direction in ['eye_up']:
+                            eye_direction = 'eye_northwest'
+                        elif eye_direction in ['eye_down']:
+                            eye_direction = 'eye_southwest'
+                    elif self.eye_direction_last in ['eye_right']:
+                        if eye_direction in ['eye_up']:
+                            eye_direction = 'eye_northeast'
+                        elif eye_direction in ['eye_down']:
+                            eye_direction = 'eye_southeast'
+#                    elif self.eye_direction_last in ['eye_northeast']:
+#                        eye_direction = 'eye_northeast'
+                    elif self.eye_direction_last is None:
+                        pass
+                    else:
+                        pass
+
+                    assert (eye_direction is not None)
+                    gecko_events.append(eye_direction)
+                    self.eye_direction_last = eye_direction
                     
             elif event.type in [0]: # UNKNOWN
                 pass
