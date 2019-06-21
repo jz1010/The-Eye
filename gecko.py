@@ -265,7 +265,9 @@ class gecko_eye_t(object):
         dom                    = parse(self.cfg_db[self.EYE_SELECT]['eye.shape'])        
         self.vb                = getViewBox(dom)
         self.pupilMinPts       = getPoints(dom, "pupilMin"      , 32, True , True )
+        #self.pupilMinPts       = getPoints(dom, "pupilMin"      , 64, True , True )        
         self.pupilMaxPts       = getPoints(dom, "pupilMax"      , 32, True , True )
+        #self.pupilMaxPts       = getPoints(dom, "pupilMax"      , 64, True , True )        
         self.irisPts           = getPoints(dom, "iris"          , 32, True , True )
         self.scleraFrontPts    = getPoints(dom, "scleraFront"   ,  0, False, False)
         self.scleraBackPts     = getPoints(dom, "scleraBack"    ,  0, False, False)
@@ -315,12 +317,14 @@ class gecko_eye_t(object):
                                       filter=pi3d.GL_LINEAR,
 #                                      filter=pi3d.GL_NEAREST, # Doesn't look as good
                                       blend=True
+#                                      blend=False # No apparent change
         )
         self.lidMap    = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['lid.art'],
                                       mipmap=False, # True, doesn't look as good
                                       filter=pi3d.GL_LINEAR,
 #                                      filter=pi3d.GL_NEAREST, # Doesn't look as good
                                       blend=True
+#                                      blend=False # No apparent change
         )
         # U/V map may be useful for debugging texture placement; not normally used
         #uvMap     = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
@@ -356,11 +360,18 @@ class gecko_eye_t(object):
         angle2 = zangle(self.scleraBackPts , self.eyeRadius)[1] # " back angle
         aRange = 180 - angle1 - angle2
         pts    = []
-        for i in range(24):
-            ca, sa = pi3d.Utility.from_polar((90 - angle1) - aRange * i / 23)
+        steps = 24
+        #steps = 12
+        for i in range(steps):
+            ca, sa = pi3d.Utility.from_polar((90 - angle1) - aRange * i / (steps-1))
             pts.append((ca * self.eyeRadius, sa * self.eyeRadius))
 
-        self.eye = pi3d.Lathe(path=pts, sides=64)
+        #self.eye = pi3d.Lathe(path=pts, sides=64) # original
+        #self.eye = pi3d.Lathe(path=pts, sides=128)        
+        self.eye = pi3d.Lathe(path=pts, sides=256)
+        #self.eye = pi3d.Lathe(path=pts, sides=512)
+        #self.eye = pi3d.Lathe(path=pts, sides=1024)
+        #self.eye = pi3d.Lathe(path=pts, sides=2048)        
         self.eye.set_textures([self.scleraMap])
         self.eye.set_shader(self.shader)
         if self.cfg_db['eye_orientation'] in ['right']:
