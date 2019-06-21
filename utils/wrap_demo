@@ -8,5 +8,5 @@ while true; do
     cd ${SB}
     sudo git pull
     sudo chown -R pi:pi ${SB}
-    ${SB}/utils/demo
+    ${SB}/utils/demo $*
 done
