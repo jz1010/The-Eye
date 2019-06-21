@@ -53,7 +53,6 @@ class gecko_eye_t(object):
         self.event_overrideBlinkDurationClose = None
         self.event_overrideBlinkDurationOpen = None        
         self.event_doBlink = False
-        self.fsm_angry = None
         
         self.parse_args()
         self.init()
@@ -67,6 +66,8 @@ class gecko_eye_t(object):
         
         self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
                                  action='store',help='Autoblink of eyelid')
+        self.parser.add_argument('--eye_orientation',default=self.cfg_db['eye_orientation'],
+                                 action='store',help='Eye orientation: right (default), left')
         self.parser.add_argument('--eye_select',default=self.EYE_SELECT,
                                  action='store',help='Eye profile selection')
         self.parser.add_argument('--eye_shape',default=self.cfg_db[self.EYE_SELECT]['eye.shape'],
@@ -93,7 +94,12 @@ class gecko_eye_t(object):
             self.cfg_db[self.EYE_SELECT]['lid.art'] = args.lid_art
         if args.sclera_art not in ["None"]:                        
             self.cfg_db[self.EYE_SELECT]['sclera.art'] = args.sclera_art
-            
+
+        if args.eye_orientation not in ['left','right']:
+            print ('** ERROR: Eye orientation must be either left or right')
+            sys.exit(1)
+
+        self.cfg_db['eye_orientation'] = args.eye_orientation
         self.cfg_db['demo'] = args.demo
         self.cfg_db['timeout_secs'] = args.timeout_secs
         
@@ -101,6 +107,7 @@ class gecko_eye_t(object):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
+            'eye_orientation': 'right', # Default right eye orientation
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
             'JOYSTICK_Y_IN': -1,    # Analog input for eye vert position (")
             'PUPIL_IN': -1,    # Analog input for pupil control (-1 = auto)
@@ -277,7 +284,10 @@ class gecko_eye_t(object):
         # eyeRadius is the size, in pixels, at which the whole eye will be rendered.
         if self.DISPLAY.width <= (self.DISPLAY.height * 2):
             # For WorldEye, eye size is -almost- full screen height
-            self.eyeRadius   = self.DISPLAY.height / 2.1
+            if False:
+                self.eyeRadius   = self.DISPLAY.height / 2.1
+            else:
+                self.eyeRadius   = self.DISPLAY.height / 1.7 #1.6 eye spills off screen
         else:
             self.eyeRadius   = self.DISPLAY.height * 2 / 5
 
@@ -296,16 +306,22 @@ class gecko_eye_t(object):
         # Load texture maps --------------------------------------------------------
 
         self.irisMap   = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['iris.art'],
-                                      mipmap=False,
-                                      filter=pi3d.GL_LINEAR)
+                                      mipmap=False, # True, doesn't look as good
+                                      filter=pi3d.GL_LINEAR
+#                                      filter=pi3d.GL_NEAREST  # Doesn't look as good
+        )
         self.scleraMap = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['sclera.art'],
-                                      mipmap=False,
+                                      mipmap=False, # True, doesn't look as good
                                       filter=pi3d.GL_LINEAR,
-                                      blend=True)
+#                                      filter=pi3d.GL_NEAREST, # Doesn't look as good
+                                      blend=True
+        )
         self.lidMap    = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['lid.art'],
-                                      mipmap=False,
+                                      mipmap=False, # True, doesn't look as good
                                       filter=pi3d.GL_LINEAR,
-                                      blend=True)
+#                                      filter=pi3d.GL_NEAREST, # Doesn't look as good
+                                      blend=True
+        )
         # U/V map may be useful for debugging texture placement; not normally used
         #uvMap     = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
         #              filter=pi3d.GL_LINEAR, blend=False, m_repeat=True)
@@ -313,7 +329,13 @@ class gecko_eye_t(object):
     def init_geometry_iris(self):
         # Generate initial iris mesh; vertex elements will get replaced on
         # a per-frame basis in the main loop, this just sets up textures, etc.
-        self.iris = meshInit(32, 4, True, 0, 0.5/self.irisMap.iy, False)
+        if self.cfg_db['eye_orientation'] in ['right']:        
+            self.iris = meshInit(32, 4, True, 0, 0.5/self.irisMap.iy, False)
+        elif self.cfg_db['eye_orientation'] in ['left']:
+            self.iris = meshInit(32, 4, True, 0.5, 0.5/self.irisMap.iy, False)
+        else:
+            raise
+        
         self.iris.set_textures([self.irisMap])
         self.iris.set_shader(self.shader)
         self.irisZ = zangle(self.irisPts, self.eyeRadius)[0] * 0.99 # Get iris Z depth, for later
@@ -341,7 +363,12 @@ class gecko_eye_t(object):
         self.eye = pi3d.Lathe(path=pts, sides=64)
         self.eye.set_textures([self.scleraMap])
         self.eye.set_shader(self.shader)
-        reAxis(self.eye, 0.0)
+        if self.cfg_db['eye_orientation'] in ['right']:
+            reAxis(self.eye, 0.0)
+        elif self.cfg_db['eye_orientation'] in ['left']:
+            reAxis(self.eye, 0.5)
+        else:
+            raise
         
     def init_geometry(self):
         # Initialize static geometry -----------------------------------------------
@@ -654,37 +681,55 @@ class gecko_eye_t(object):
         self.newUpperLidWeight = self.trackingPos + (n * (1.0 - self.trackingPos))
 	self.newLowerLidWeight = (1.0 - self.trackingPos) + (n * self.trackingPos)
 
-	if (self.ruRegen or (abs(self.newUpperLidWeight - self.prevUpperLidWeight) >=
-                             self.upperLidRegenThreshold)):
+        if self.cfg_db['eye_orientation'] in ['right']:                
+            flip = True
+        elif self.cfg_db['eye_orientation'] in ['left']:            
+            flip = False
+        else:
+            raise
+        
+	if (self.ruRegen or \
+            (abs(self.newUpperLidWeight - self.prevUpperLidWeight) >= \
+             self.upperLidRegenThreshold)):
             self.newUpperLidPts = pointsInterp(self.upperLidOpenPts,
                                                self.upperLidClosedPts,
                                                self.newUpperLidWeight)
             if self.newUpperLidWeight > self.prevUpperLidWeight:
-                self.upperEyelid.re_init(pts=pointsMesh(
-                    self.upperLidEdgePts, self.prevUpperLidPts,
-                    self.newUpperLidPts, 5, 0, False, True))
+                self.upperEyelid.re_init(
+                    pts=pointsMesh(
+                    self.upperLidEdgePts,
+                    self.prevUpperLidPts,
+                    self.newUpperLidPts, 5, 0, False, flip))
             else:
-                self.upperEyelid.re_init(pts=pointsMesh(
-                    self.upperLidEdgePts, self.newUpperLidPts,
-                    self.prevUpperLidPts, 5, 0, False, True))
+                self.upperEyelid.re_init(
+                    pts=pointsMesh(
+                    self.upperLidEdgePts,
+                    self.newUpperLidPts,
+                    self.prevUpperLidPts, 5, 0, False, flip))
             self.prevUpperLidWeight = self.newUpperLidWeight
             self.prevUpperLidPts    = self.newUpperLidPts
             self.ruRegen = True
 	else:
             self.ruRegen = False
 
-	if (self.rlRegen or (abs(self.newLowerLidWeight - self.prevLowerLidWeight) >=
-                             self.lowerLidRegenThreshold)):
+	if (self.rlRegen or \
+            (abs(self.newLowerLidWeight - self.prevLowerLidWeight) >= \
+             self.lowerLidRegenThreshold)):
             self.newLowerLidPts = pointsInterp(self.lowerLidOpenPts,
-                                          self.lowerLidClosedPts, self.newLowerLidWeight)
+                                               self.lowerLidClosedPts,
+                                               self.newLowerLidWeight)
             if self.newLowerLidWeight > self.prevLowerLidWeight:
-                self.lowerEyelid.re_init(pts=pointsMesh(
-                    self.lowerLidEdgePts, self.prevLowerLidPts,
-                    self.newLowerLidPts, 5, 0, False, True))
+                self.lowerEyelid.re_init(
+                    pts=pointsMesh(
+                    self.lowerLidEdgePts,
+                    self.prevLowerLidPts,
+                    self.newLowerLidPts, 5, 0, False, flip))
             else:
-                self.lowerEyelid.re_init(pts=pointsMesh(
-                    self.lowerLidEdgePts, self.newLowerLidPts,
-                    self.prevLowerLidPts, 5, 0, False, True))
+                self.lowerEyelid.re_init(
+                    pts=pointsMesh(
+                    self.lowerLidEdgePts,
+                    self.newLowerLidPts,
+                    self.prevLowerLidPts, 5, 0, False, flip))
             self.prevLowerLidWeight = self.newLowerLidWeight
             self.prevLowerLidPts    = self.newLowerLidPts
             self.rlRegen = True
@@ -692,11 +737,23 @@ class gecko_eye_t(object):
             self.rlRegen = False
 
 	# Draw eye
-	self.iris.rotateToX(self.curY)
-	self.iris.rotateToY(self.curX)
-	self.iris.draw()
-	self.eye.rotateToX(self.curY)
-	self.eye.rotateToY(self.curX)
+	#convergence = 2.0
+        convergence = 0.0        
+        if self.cfg_db['eye_orientation'] in ['right']:
+	    self.iris.rotateToX(self.curY)
+	    self.iris.rotateToY(self.curX - convergence)
+	    self.iris.draw()
+	    self.eye.rotateToX(self.curY - convergence)
+	    self.eye.rotateToY(self.curX)
+        elif self.cfg_db['eye_orientation'] in ['left']:
+	    self.iris.rotateToX(self.curY)
+	    self.iris.rotateToY(self.curX + convergence)
+	    self.iris.draw()
+	    self.eye.rotateToX(self.curY)
+	    self.eye.rotateToY(self.curX + convergence)
+        else:
+            raise
+            
 	self.eye.draw()
         self.upperEyelid.draw()
         self.lowerEyelid.draw()
@@ -812,6 +869,7 @@ class gecko_eye_t(object):
                     duration = 0.25
                 else:
                     emotion_selected = self.emotion_select()
+                    emotion_selected = None
                     if emotion_selected is not None:
                         (v,duration) = emotion_selected()
                         if v is None:
@@ -881,6 +939,7 @@ class gecko_eye_t(object):
         
         self.emotion_idx = 0
         self.shuffled_emo = self.emotions
+        self.fsm_angry = None
         
     def emotion_select(self):
         now_sec = time.time()
