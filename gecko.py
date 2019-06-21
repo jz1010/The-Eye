@@ -835,6 +835,10 @@ class gecko_eye_t(object):
 
     def run(self):
         do_exit = False
+        if self.cfg_db['demo']:
+            self.cfg_db['eye_orientation'] = random.choice(['left','right'])
+            print ('eye_orientation: {}'.format(self.cfg_db['eye_orientation']))
+            
         last_eye_art_sec = time.time()
         while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
