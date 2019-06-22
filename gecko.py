@@ -1,4 +1,4 @@
-#!/bin/env pythong
+#!/usr/bin/env python
 
 import os
 import sys
@@ -14,6 +14,7 @@ from evdev import InputDevice, ecodes
 from joystick import joystick_t
 from keyboard import keyboard_t
 from debug import leak_check
+from wearables import wearables_client_t
 
 # These need to be globals in order to avoid a memory leak
 DISPLAY = pi3d.Display.create(samples=4)
@@ -187,7 +188,11 @@ class gecko_eye_t(object):
 #                'sclera.art': 'hack_graphics/leopard-gecko-3381555_960_720.jpg',
 #                'sclera.art': 'hack_graphics/Ds4CWFgV4AAlhWK.jpg_large.jpg',
                 'sclera.art': 'hack_graphics/sclera.jpg',
-		 }           
+	    },
+
+            # Network related
+            'port_wearables' : 0xDF0D,
+            'mcaddr' : '239.255.223.01'
         }
         
     def init(self):
@@ -199,7 +204,8 @@ class gecko_eye_t(object):
         self.init_keyboard()
         self.init_joystick()
         self.init_emotion()
-
+        self.init_wearables()
+        
     def find_input_device(self,input_name=None):
         if input_name is None:
             return None
@@ -221,7 +227,12 @@ class gecko_eye_t(object):
                          re.search(r'extreme 3d',device.name,re.IGNORECASE):
                         return device_name
         return None
-                        
+
+    def init_wearables(self):
+        self.wearables_client = wearables_client_t(self.debug,
+                                                   mcaddr=self.cfg_db['mcaddr'],
+                                                   port=self.cfg_db['port_wearables'])
+        
     def init_joystick(self):
         if self.joystick is None:
             now = time.time()
@@ -366,6 +377,8 @@ class gecko_eye_t(object):
             ca, sa = pi3d.Utility.from_polar((90 - angle1) - aRange * i / (steps-1))
             pts.append((ca * self.eyeRadius, sa * self.eyeRadius))
 
+        #self.eye = pi3d.Lathe(path=pts, sides=16) # artifacts
+        #self.eye = pi3d.Lathe(path=pts, sides=32) 
         #self.eye = pi3d.Lathe(path=pts, sides=64) # original
         #self.eye = pi3d.Lathe(path=pts, sides=128)        
         self.eye = pi3d.Lathe(path=pts, sides=256)
@@ -509,7 +522,7 @@ class gecko_eye_t(object):
 			if   v < self.cfg_db['pupil_min']: v = self.cfg_db['pupil_min']
 			elif v > self.cfg_db['pupil_max']: v = self.cfg_db['pupil_max']
 			self.frame(v) # Draw frame w/interim pupil scale value
-                       
+                        self.do_wearables()
                         self.do_joystick()
                         do_exit |= self.keyboard_sample()
 
@@ -833,6 +846,11 @@ class gecko_eye_t(object):
                 print ('Unhandled event: {}'.format(event))
                 raise
         self.update_eye_events()
+
+    def do_wearables(self):
+        msg = self.wearables_client.get_msg_nonblocking()
+        if msg is not None:
+            print ('wearables msg: {}'.format(msg))
 
     def do_joystick(self):
         self.init_joystick()
