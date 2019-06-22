@@ -54,8 +54,11 @@ hdmi_mode=87
 
 # Enable audio (loads snd_bcm2835)
 dtparam=audio=on
-hdmi_cvt=640 480 60 1 0 0 0
-#hdmi_cvt=1680 1050 60 5 0 0 0
+hdmi_cvt=640 480 60 1 0 0 0 # Works, good frame rate
+#hdmi_cvt=800 600 60 1 0 0 0 # Works, slight stuttle in frame rate during movement
+#hdmi_cvt=1024 768 60 1 0 0 0 # Doesn't even boot!
+#hdmi_cvt=1680 1050 60 5 0 0 0 # Works, but noticibly slower frame rate
+#hdmi_cvt=1920 1080 60 3 0 0 0 # Doesn't seem to work
 
 disable_splash=1
 gpu_mem=128
