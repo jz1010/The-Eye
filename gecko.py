@@ -14,7 +14,7 @@ from evdev import InputDevice, ecodes
 from joystick import joystick_t
 from keyboard import keyboard_t
 from debug import leak_check
-from wearables import wearables_client_t
+from wearables import wearables_client_t, wearables_server_t
 
 # These need to be globals in order to avoid a memory leak
 DISPLAY = pi3d.Display.create(samples=4)
@@ -62,6 +62,8 @@ class gecko_eye_t(object):
         self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--demo',default=self.cfg_db['demo'],
                                  action='store_true',help='Demo mode (headless, various eye animations)')
+        self.parser.add_argument('--joystick_test',default=self.cfg_db['joystick_test'],
+                                 action='store_true',help='Inject joystick test messages')
         self.parser.add_argument('--timeout_secs',default=self.cfg_db['timeout_secs'],
                                  action='store',type=int,help='Exit application after N seconds')
         
@@ -102,11 +104,13 @@ class gecko_eye_t(object):
 
         self.cfg_db['eye_orientation'] = args.eye_orientation
         self.cfg_db['demo'] = args.demo
+        self.cfg_db['joystick_test'] = args.joystick_test
         self.cfg_db['timeout_secs'] = args.timeout_secs
         
     def init_cfg_db(self):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
+            'joystick_test' : False, # No test messages from joystick
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
@@ -191,8 +195,13 @@ class gecko_eye_t(object):
 	    },
 
             # Network related
+            # Wearables
             'port_wearables' : 0xDF0D,
-            'mcaddr' : '239.255.223.01'
+            'mcaddr_wearables' : '239.255.223.01',
+
+            # Inter-eye communication
+            'port_eyes' : 0xDF0D,
+            'mcaddr_eyes' : '239.255.223.02'
         }
         
     def init(self):
@@ -229,9 +238,18 @@ class gecko_eye_t(object):
         return None
 
     def init_wearables(self):
+        self.wearables_msg_cnt = 0
         self.wearables_client = wearables_client_t(self.debug,
-                                                   mcaddr=self.cfg_db['mcaddr'],
+                                                   mcaddr=self.cfg_db['mcaddr_wearables'],
                                                    port=self.cfg_db['port_wearables'])
+
+        self.eye_server = wearables_server_t(self.debug,
+                                             mcaddr=self.cfg_db['mcaddr_eyes'],
+                                             port=self.cfg_db['port_eyes'])
+        
+        self.eye_client = wearables_client_t(self.debug,
+                                             mcaddr=self.cfg_db['mcaddr_eyes'],
+                                             port=self.cfg_db['port_eyes'])
         
     def init_joystick(self):
         if self.joystick is None:
@@ -523,6 +541,7 @@ class gecko_eye_t(object):
 			elif v > self.cfg_db['pupil_max']: v = self.cfg_db['pupil_max']
 			self.frame(v) # Draw frame w/interim pupil scale value
                         self.do_wearables()
+                        self.do_eye_comm()                        
                         self.do_joystick()
                         do_exit |= self.keyboard_sample()
 
@@ -843,18 +862,40 @@ class gecko_eye_t(object):
             elif event in ['eye_context_12']:
                 self.eye_context_next = 'hack'
             else:
-                print ('Unhandled event: {}'.format(event))
-                raise
+                print ('** Unhandled event: {}'.format(event))
+                continue
+            
         self.update_eye_events()
 
     def do_wearables(self):
-        msg = self.wearables_client.get_msg_nonblocking()
-        if msg is not None:
-            print ('wearables msg: {}'.format(msg))
+        msgs = self.wearables_client.get_msgs_nonblocking()
+        if msgs is not None:
+            gecko_events = [msg_rec['effect'] for msg_rec in msgs]
+            print ('gecko_events: {}'.format(gecko_events))
+            #self.handle_events(gecko_events)
 
+    def do_eye_comm(self):
+        msgs = self.eye_client.get_msgs_nonblocking()
+        if msgs is not None:
+            gecko_events = [msg_rec['effect'] for msg_rec in msgs]
+            print ('gecko_events: {}'.format(gecko_events))
+            self.handle_events(gecko_events)
+            
+    def create_joystick_test_msg(self):
+        self.test_eye_events = ['eye_right','eye_northeast',
+                                'eye_up','eye_northwest',
+                                'eye_left','eye_southwest',
+                                'eye_down','eye_southeast']
+        #eye_event = random.choice(self.test_eye_events)
+        eye_event = self.test_eye_events[self.wearables_msg_cnt % len(self.test_eye_events)]
+        self.eye_server.send_msg(eye_event)
+        self.wearables_msg_cnt += 1
+        
     def do_joystick(self):
         self.init_joystick()
-        if self.joystick is not None:
+        if self.cfg_db['joystick_test']:
+            gecko_events = self.create_joystick_test_msg()
+        elif self.joystick is not None:
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
             self.joystick_polls +=1
