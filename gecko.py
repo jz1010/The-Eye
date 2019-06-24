@@ -889,13 +889,37 @@ class gecko_eye_t(object):
             
         self.update_eye_events()
 
+    def map_wearables_events(self,wearable_events):
+        eye_events = []
+        for event in wearable_events:
+            if event in ['slowblink']:
+                eye_events.append('eye_up')
+            elif event in ['radiaterainbow']:
+                eye_events.append('eye_northeast')
+            elif event in ['rider']:
+                eye_events.append('eye_right')                
+            elif event in ['threesine']:
+                eye_events.append('southeast')
+            elif event in ['flame']:
+                eye_events.append('eye_down')
+                eye_events.append('eye_southwest')                
+            elif event in ['glitter']:
+                eye_events.append('eye_left')
+                eye_events.append('eye_northwest')                
+            else:
+                print ('** Unmapped wearables event: {}'.format(event))
+
+        return eye_events
+    
     def do_wearables(self):
         msgs = self.wearables_client.get_msgs_nonblocking()
         if msgs is not None:
-            gecko_events = [msg_rec['effect'] for msg_rec in msgs]
-            print ('gecko_events: {}'.format(gecko_events))
-            self.wearables_msg_cnt += len(gecko_events)
-            #self.handle_events(gecko_events)
+            wearable_events = [msg_rec['effect'] for msg_rec in msgs]
+            print ('wearable_events: {}'.format(wearable_events))
+            self.wearables_msg_cnt += len(wearable_events)
+            wearable_eye_events = self.map_wearables_events(wearable_events)
+            print ('wearable_eye_events: {}'.format(wearable_eye_events))
+            self.handle_events(wearable_eye_events)
 
     def sanity_check_comm(self,events):
         if self.eye_comm_msg_cnt == 0:
@@ -918,7 +942,7 @@ class gecko_eye_t(object):
         msgs = self.eye_client.get_msgs_nonblocking()
         if msgs is not None:
             gecko_events = [msg_rec['effect'] for msg_rec in msgs]
-            print ('gecko_events: {}'.format(gecko_events))
+            print ('eye_comm_events: {}'.format(gecko_events))
             #self.sanity_check_comm(gecko_events)
             self.eye_comm_msg_cnt += len(gecko_events)
             self.handle_events(gecko_events)
