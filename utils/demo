@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-TIMEOUT_SECS=${TIMEOUT_SECS:-600} # 20 mins
+TIMEOUT_SECS=${TIMEOUT_SECS:-1200} # 20 mins
 SB=${SB:-/home/pi/sb_production}
 
 cd ${SB}

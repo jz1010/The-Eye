@@ -27,7 +27,7 @@ BLINK_NONE = 0
 BLINK_CLOSING = 1
 BLINK_OPENING = 2
 
-INPUT_DEV_RETRY_SECS = 5
+INPUT_DEV_RETRY_SECS = 60
 
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
@@ -164,7 +164,7 @@ class gecko_eye_t(object):
             'hold_duration_min_sec' : 2.1, # original: 0.1
             'hold_duration_max_sec' : 4.0, # original: 1.1
 
-            'move_duration_joystick_sec' : 0.12,
+            'move_duration_joystick_sec' : 0.10, # 0.12
             'emotion_interval_sec' : 8.0, # Interval between next emotion
             
             'cyclops': {
@@ -205,6 +205,7 @@ class gecko_eye_t(object):
         }
         
     def init(self):
+        self.test_joystick_cnt = 0
         self.init_svg()
         self.init_display()
         self.load_textures()
@@ -214,6 +215,7 @@ class gecko_eye_t(object):
         self.init_joystick()
         self.init_emotion()
         self.init_wearables()
+        self.init_eye_comm()
         
     def find_input_device(self,input_name=None):
         if input_name is None:
@@ -237,19 +239,20 @@ class gecko_eye_t(object):
                         return device_name
         return None
 
+    def init_eye_comm(self):
+        self.eye_server = wearables_server_t(self.debug,
+                                             mcaddr=self.cfg_db['mcaddr_eyes'],
+                                             port=self.cfg_db['port_eyes'])
+        self.eye_comm_msg_cnt = 0
+        self.eye_client = wearables_client_t(self.debug,
+                                             mcaddr=self.cfg_db['mcaddr_eyes'],
+                                             port=self.cfg_db['port_eyes'])
+        
     def init_wearables(self):
         self.wearables_msg_cnt = 0
         self.wearables_client = wearables_client_t(self.debug,
                                                    mcaddr=self.cfg_db['mcaddr_wearables'],
                                                    port=self.cfg_db['port_wearables'])
-
-        self.eye_server = wearables_server_t(self.debug,
-                                             mcaddr=self.cfg_db['mcaddr_eyes'],
-                                             port=self.cfg_db['port_eyes'])
-        
-        self.eye_client = wearables_client_t(self.debug,
-                                             mcaddr=self.cfg_db['mcaddr_eyes'],
-                                             port=self.cfg_db['port_eyes'])
         
     def init_joystick(self):
         if self.joystick is None:
@@ -262,10 +265,15 @@ class gecko_eye_t(object):
             device_name = self.find_input_device('joystick')
             self.joystick = joystick_t(joystick_dev=device_name)
             self.joystick_polls = 0
-        
+            self.joystick_msg_cnt = 0
+            
             # Set up state kept from events sampled from joystick
-            self.event_blink = 1
-            self.update_eye_events(reset=True)
+            if self.joystick.get_status():
+                self.event_blink = 1
+                self.update_eye_events(reset=True)
+            else:
+                self.joystick = None
+            self.debug_joystick_sec = 0
         else:
             if not self.joystick.get_status():
                 self.joystick = None
@@ -280,6 +288,8 @@ class gecko_eye_t(object):
 
             device_name = self.find_input_device('keyboard')
             self.keyboard = keyboard_t(device_name)
+            if not self.keyboard.get_status():
+                self.keyboard = None
         else:
             if not self.keyboard.get_status():
                 self.keyboard = None
@@ -482,10 +492,10 @@ class gecko_eye_t(object):
                                            self.cfg_db['move_duration_max_sec'])
         self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
                                            self.cfg_db['hold_duration_max_sec'])
-        self.startTime    = 0.0
+        self.move_startTime    = 0.0
         self.isMoving     = False
 
-        self.frames        = 0
+        self.frame_cnt        = 0
         self.beginningTime = time.time()
 
         self.eye.positionX(0.0)
@@ -513,6 +523,12 @@ class gecko_eye_t(object):
 
         self.trackingPos = 0.3        
 
+        self.update_eye_events(reset=True)
+        self.test_eye_events = ['eye_right','eye_northeast',
+                                'eye_up','eye_northwest',
+                                'eye_left','eye_southwest',
+                                'eye_down','eye_southeast']
+        
     def split(self, # Recursive simulated pupil response when no analog sensor
               startValue, # Pupil scale starting value (0.0 to 1.0)
               endValue,   # Pupil scale ending value (")
@@ -552,9 +568,9 @@ class gecko_eye_t(object):
 	self.DISPLAY.loop_running()
 
 	now_sec = time.time()
-	dt  = now_sec - self.startTime
+	dt  = now_sec - self.move_startTime
 
-	self.frames += 1
+	self.frame_cnt += 1
 #	if(now_sec > beginningTime):
 #		print(frames/(now_sec-beginningTime))
 
@@ -570,7 +586,7 @@ class gecko_eye_t(object):
 	else :
             if self.isMoving == True: # Movement/re-positioning is ongoing
                 if dt <= self.moveDuration:
-                    scale        = (now_sec - self.startTime) / self.moveDuration
+                    scale        = (now_sec - self.move_startTime) / self.moveDuration
                     # Ease in/out curve: 3*t^2-2*t^3
                     scale = 3.0 * scale * scale - 2.0 * scale * scale * scale
                     self.curX         = self.startX + (self.destX - self.startX) * scale
@@ -586,9 +602,15 @@ class gecko_eye_t(object):
                     else:
                         self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
                                                            self.cfg_db['hold_duration_max_sec'])
-                    self.startTime    = now_sec
+                    self.move_startTime    = now_sec
                     self.isMoving     = False
-            elif self.event_eye_queued: # Joystick control has priority
+            elif self.eye_event_queued(): # Joystick control has priority
+                self.eye_event_prev = self.eye_event
+                print ('frame_event_queue: {}'.format(self.eye_event_queue))
+                self.eye_event = self.eye_event_queue.pop(0)
+                #self.eye_event = self.eye_event_queue[0]
+                self.eye_event_queue[1:]
+                print ('frame event: {}'.format(self.eye_event))
                 if self.eye_event in ['eye_up']:
                     self.destX = 0.0
                     n = math.sqrt(900.0 - self.destX * self.destX)
@@ -629,7 +651,7 @@ class gecko_eye_t(object):
                     #self.event_moveDuration = None
                 else:
                     self.moveDuration = self.cfg_db['move_duration_joystick_sec']
-                self.startTime    = now_sec
+                self.move_startTime    = now_sec
                 self.isMoving     = True
                 self.update_eye_events(reset=True)
             elif True:
@@ -638,13 +660,14 @@ class gecko_eye_t(object):
                         self.destX = random.uniform(-30.0, 30.0)
                         n = math.sqrt(900.0 - self.destX * self.destX)
                         self.destY = random.uniform(-n, n)
+                        
                     if self.event_moveDuration is not None:
                         self.moveDuration = self.event_moveDuration
                         #self.event_moveDuration = None
                     else:
                         self.moveDuration = random.uniform(self.cfg_db['move_duration_min_sec'],
                                                            self.cfg_db['move_duration_max_sec'])
-                    self.startTime    = now_sec
+                    self.move_startTime    = now_sec
                     self.isMoving     = True
 
 
@@ -808,7 +831,7 @@ class gecko_eye_t(object):
             for event in events:
                 print ('event: {}'.format(event))
                 if event.type == ecodes.EV_KEY:
-                    print (event)
+                    print ('keyboard event: {}'.format(event))
                     if event.code == 1 and event.value == 1: # Escape key
                         return True
                 elif True: # other keys here
@@ -821,24 +844,23 @@ class gecko_eye_t(object):
     def update_eye_events(self,reset=False):
         if reset:
             self.eye_event = None
-            self.eye_event_last = None
+            self.eye_event_queue = []
+            self.eye_event_prev = None
             self.eye_context_next = None
-            self.event_eye_queued = False
             
             self.pupil_event_queued = False
             self.pupil_event_last = None
-        
+            self.event_blink = 1
+            
+    def eye_event_queued(self):
+        return len(self.eye_event_queue) > 0
 
     def set_eye_event(self,eye_event):
-        if self.event_eye_queued:
-            return
+        #if eye_event is self.eye_event_prev:
+        #    return
 
-        if eye_event is self.eye_event_last:
-            return
-
-        self.eye_event_last = self.eye_event
-        self.eye_event = eye_event
-        self.event_eye_queued = True
+        #self.eye_event_prev = self.eye_event
+        self.eye_event_queue.append(eye_event)
         
     def handle_events(self,events):
         if len(events) == 0:
@@ -872,24 +894,44 @@ class gecko_eye_t(object):
         if msgs is not None:
             gecko_events = [msg_rec['effect'] for msg_rec in msgs]
             print ('gecko_events: {}'.format(gecko_events))
+            self.wearables_msg_cnt += len(gecko_events)
             #self.handle_events(gecko_events)
 
+    def sanity_check_comm(self,events):
+        if self.eye_comm_msg_cnt == 0:
+            self.debug_idx = self.test_eye_events.index(events[0])
+
+        for idx,event in enumerate(events):
+            if event != self.test_eye_events[(self.debug_idx + idx) % \
+                                             len(self.test_eye_events)]:
+                print ('** Error: {} is not expected: {}'.format(
+                    event,
+                    self.test_eye_events[(self.debug_idx + idx) % \
+                                         len(self.test_eye_events)]))
+                raise
+            else:
+                print ('event: {} is ok'.format(event))
+
+        self.debug_idx += len(events)                    
+        
     def do_eye_comm(self):
         msgs = self.eye_client.get_msgs_nonblocking()
         if msgs is not None:
             gecko_events = [msg_rec['effect'] for msg_rec in msgs]
             print ('gecko_events: {}'.format(gecko_events))
+            #self.sanity_check_comm(gecko_events)
+            self.eye_comm_msg_cnt += len(gecko_events)
             self.handle_events(gecko_events)
             
     def create_joystick_test_msg(self):
-        self.test_eye_events = ['eye_right','eye_northeast',
-                                'eye_up','eye_northwest',
-                                'eye_left','eye_southwest',
-                                'eye_down','eye_southeast']
         #eye_event = random.choice(self.test_eye_events)
-        eye_event = self.test_eye_events[self.wearables_msg_cnt % len(self.test_eye_events)]
-        self.eye_server.send_msg(eye_event)
-        self.wearables_msg_cnt += 1
+        eye_event = self.test_eye_events[self.test_joystick_cnt % len(self.test_eye_events)]
+        now = time.time()
+        dt = now - self.debug_joystick_sec
+        if dt > 1:
+            self.eye_server.send_msg(eye_event)
+            self.debug_joystick_sec = now
+            self.test_joystick_cnt += 1
         
     def do_joystick(self):
         self.init_joystick()
@@ -899,6 +941,7 @@ class gecko_eye_t(object):
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
             self.joystick_polls +=1
+            self.joystick_msg_cnt += len(gecko_events)
         
         if self.debug:
             print ('joystick_polls: {}'.format(self.joystick_polls))
@@ -933,7 +976,7 @@ class gecko_eye_t(object):
                 
                 elif self.pupil_event_queued:  # Joystick control of pupil
                     self.pupil_event_queued = False
-                    self.eye_event_last = self.event_pupil
+                    self.eye_event_prev = self.event_pupil
                     if self.event_pupil in ['pupil_widen']:
                         v = 1.0
                     elif self.event_pupil in ['pupil_narrow']:
@@ -1080,7 +1123,6 @@ class gecko_eye_t(object):
             
             self.eye_event = random.choice(focused_dirs)
             print ('angry dir: {}'.format(self.eye_event))            
-            self.event_eye_queued = True
             #self.event_moveDuration = self.cfg_db['move_angry_duration_min_sec']
             self.event_moveDuration = 0.25
             self.event_holdDuration = 2.0
@@ -1131,7 +1173,6 @@ class gecko_eye_t(object):
         
         self.eye_event = random.choice(staring_head_dirs)
         print ('staring head dir: {}'.format(self.eye_event))
-        self.event_eye_queued = True
         self.event_moveDuration = self.cfg_db['move_duration_min_sec']
         self.event_holdDuration = 20.0
         
