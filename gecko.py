@@ -899,7 +899,7 @@ class gecko_eye_t(object):
             elif event in ['rider']:
                 eye_events.append('eye_right')                
             elif event in ['threesine']:
-                eye_events.append('southeast')
+                eye_events.append('eye_southeast')
             elif event in ['flame']:
                 eye_events.append('eye_down')
                 eye_events.append('eye_southwest')                
@@ -945,7 +945,10 @@ class gecko_eye_t(object):
             print ('eye_comm_events: {}'.format(gecko_events))
             #self.sanity_check_comm(gecko_events)
             self.eye_comm_msg_cnt += len(gecko_events)
-            self.handle_events(gecko_events)
+            if self.joystick is None:
+                self.handle_events(gecko_events)
+            else:
+                print ('Joystick master dropping events')
             
     def create_joystick_test_msg(self):
         #eye_event = random.choice(self.test_eye_events)
@@ -964,6 +967,7 @@ class gecko_eye_t(object):
         elif self.joystick is not None:
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
+            self.eye_server.send_msg(eye_event)            
             self.joystick_polls +=1
             self.joystick_msg_cnt += len(gecko_events)
         
