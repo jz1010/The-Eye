@@ -1144,7 +1144,7 @@ class gecko_eye_t(object):
             #do_exit = self.keyboard_sample()
             now_sec = time.time()
             if self.cfg_db['timeout_secs'] is not None and \
-               int(now_sec - last_eye_art_sec) > self.cfg_db['timeout_secs']:
+               int(now_sec - self.last_eye_art_sec) > self.cfg_db['timeout_secs']:
                 do_exit |= True
 
         if do_exit:
