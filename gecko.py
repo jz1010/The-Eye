@@ -7,6 +7,7 @@ import math
 import random
 import time
 import argparse
+from collections import defaultdict
 import pi3d
 from xml.dom.minidom import parse
 from gfxutil import *
@@ -27,7 +28,7 @@ BLINK_NONE = 0
 BLINK_CLOSING = 1
 BLINK_OPENING = 2
 
-INPUT_DEV_RETRY_SECS = 60
+INPUT_DEV_RETRY_SECS = 600
 
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
@@ -56,7 +57,8 @@ class gecko_eye_t(object):
         self.event_doBlink = False
         
         self.parse_args()
-        self.init()
+        eye_contexts = ['cyclops','hack','dragon']        
+        self.init(eye_contexts)
 
     def parse_args(self):
         self.parser = argparse.ArgumentParser(description="Parse arguments")
@@ -110,6 +112,7 @@ class gecko_eye_t(object):
     def init_cfg_db(self):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
+            'demo_eye_tenure_secs' : 3,
             'joystick_test' : False, # No test messages from joystick
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
@@ -203,14 +206,67 @@ class gecko_eye_t(object):
             'port_eyes' : 0xDF0D,
             'mcaddr_eyes' : '239.255.223.02'
         }
+
+    def switch_eye_context(self,eye_context):
+        if eye_context is None:
+            return
+
+        #print (self.eye_cache[eye_context])
+        self.vb = self.eye_cache[eye_context]['vb']
+        self.pupilMinPts = self.eye_cache[eye_context]['pupilMinPts']
+        self.pupilMaxPts = self.eye_cache[eye_context]['pupilMaxPts']
+        self.irisPts = self.eye_cache[eye_context]['irisPts']
+        self.scleraFrontPts = self.eye_cache[eye_context]['scleraFrontPts']
+        self.scleraBackPts = self.eye_cache[eye_context]['scleraBackPts']
+        self.upperLidClosedPts = self.eye_cache[eye_context]['upperLidClosedPts']
+        self.upperLidOpenPts = self.eye_cache[eye_context]['upperLidOpenPts']
+        self.upperLidEdgePts = self.eye_cache[eye_context]['upperLidEdgePts']
+        self.lowerLidClosedPts = self.eye_cache[eye_context]['lowerLidClosedPts']
+        self.lowerLidOpenPts = self.eye_cache[eye_context]['lowerLidOpenPts']
+        self.lowerLidEdgePts = self.eye_cache[eye_context]['lowerLidEdgePts']
+        self.irisMap = self.eye_cache[eye_context]['irisMap']
+        self.scleraMap = self.eye_cache[eye_context]['scleraMap']
+        self.lidMap = self.eye_cache[eye_context]['lidMap']
+        self.eye = self.eye_cache[eye_context]['eye']
+        self.iris = self.eye_cache[eye_context]['iris']
+        self.irisZ = self.eye_cache[eye_context]['irisZ']
+        self.upperEyelid = self.eye_cache[eye_context]['upperEyelid']
+        self.lowerEyelid = self.eye_cache[eye_context]['lowerEyelid']
         
-    def init(self):
+        if not self.eye_cache[eye_context]['geometry_initialized']:
+            self.eye_cache[eye_context]['geometry_initialized'] = True
+            self.init_geometry(eye_context)
+
+        #self.init_geometry_iris()
+        #self.init_geometry_eyelids()
+        #self.init_geometry_sclera()
+
+        return eye_context
+        
+    def init(self,eye_contexts):
         self.test_joystick_cnt = 0
-        self.init_svg()
+        self.eye_cache = defaultdict(dict)
         self.init_display()
-        self.load_textures()
-        self.init_geometry()
-        self.init_globals()
+
+        # Eye context dependent
+        if False:
+            self.init_svg()
+            self.load_textures(eye_context)
+        else:
+            # Build eyes
+            for eye_context in eye_contexts:
+                self.init_svg(eye_context)
+                self.load_textures(eye_context)
+                self.init_geometry(eye_context)
+                self.eye_cache[eye_context]['geometry_initialized'] = True
+                self.init_globals()
+            
+        # Set eye context
+        next_eye = 'cyclops'
+        #next_eye = 'dragon'
+        self.EYE_SELECT = self.switch_eye_context(next_eye)
+
+        # Independent of rendering setup
         self.init_keyboard()
         self.init_joystick()
         self.init_emotion()
@@ -294,14 +350,14 @@ class gecko_eye_t(object):
             if not self.keyboard.get_status():
                 self.keyboard = None
             
-    def init_svg(self):
+    def init_svg(self,eye_context=None):
         # Load SVG file, extract paths & convert to point lists --------------------
 
         # Thanks Glen Akins for the symmetrical-lidded cyclops eye SVG!
         # Iris & pupil have been scaled down slightly in this version to compensate
         # for how the WorldEye distorts things...looks OK on WorldEye now but might
         # seem small and silly if used with the regular OLED/TFT code.
-        dom                    = parse(self.cfg_db[self.EYE_SELECT]['eye.shape'])        
+        dom                    = parse(self.cfg_db[eye_context]['eye.shape'])        
         self.vb                = getViewBox(dom)
         self.pupilMinPts       = getPoints(dom, "pupilMin"      , 32, True , True )
         #self.pupilMinPts       = getPoints(dom, "pupilMin"      , 64, True , True )        
@@ -316,6 +372,20 @@ class gecko_eye_t(object):
         self.lowerLidClosedPts = getPoints(dom, "lowerLidClosed", 33, False, False)
         self.lowerLidOpenPts   = getPoints(dom, "lowerLidOpen"  , 33, False, False)
         self.lowerLidEdgePts   = getPoints(dom, "lowerLidEdge"  , 33, False, False)
+
+        if eye_context is not None:
+            self.eye_cache[eye_context]['vb'] = self.vb
+            self.eye_cache[eye_context]['pupilMinPts'] = self.pupilMinPts
+            self.eye_cache[eye_context]['pupilMaxPts'] = self.pupilMaxPts
+            self.eye_cache[eye_context]['irisPts'] = self.irisPts
+            self.eye_cache[eye_context]['scleraFrontPts'] = self.scleraFrontPts
+            self.eye_cache[eye_context]['scleraBackPts'] = self.scleraBackPts
+            self.eye_cache[eye_context]['upperLidClosedPts'] = self.upperLidClosedPts
+            self.eye_cache[eye_context]['upperLidOpenPts'] = self.upperLidOpenPts
+            self.eye_cache[eye_context]['upperLidEdgePts'] = self.upperLidEdgePts
+            self.eye_cache[eye_context]['lowerLidClosedPts'] = self.lowerLidClosedPts
+            self.eye_cache[eye_context]['lowerLidOpenPts'] = self.lowerLidOpenPts
+            self.eye_cache[eye_context]['lowerLidEdgePts'] = self.lowerLidEdgePts            
 
     def init_display(self):
         global DISPLAY
@@ -343,33 +413,38 @@ class gecko_eye_t(object):
         self.light = light
                 
 
-    def load_textures(self):
+    def load_textures(self,eye_context=None):
         # Load texture maps --------------------------------------------------------
 
-        self.irisMap   = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['iris.art'],
-                                      mipmap=False, # True, doesn't look as good
-                                      filter=pi3d.GL_LINEAR
-#                                      filter=pi3d.GL_NEAREST  # Doesn't look as good
+        self.irisMap   = pi3d.Texture(self.cfg_db[eye_context]['iris.art'],
+                                 mipmap=False, # True, doesn't look as good
+                                 filter=pi3d.GL_LINEAR
+#                                filter=pi3d.GL_NEAREST  # Doesn't look as good
         )
-        self.scleraMap = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['sclera.art'],
-                                      mipmap=False, # True, doesn't look as good
-                                      filter=pi3d.GL_LINEAR,
-#                                      filter=pi3d.GL_NEAREST, # Doesn't look as good
-                                      blend=True
-#                                      blend=False # No apparent change
+        self.scleraMap = pi3d.Texture(self.cfg_db[eye_context]['sclera.art'],
+                                 mipmap=False, # True, doesn't look as good
+                                 filter=pi3d.GL_LINEAR,
+#                                filter=pi3d.GL_NEAREST, # Doesn't look as good
+                                 blend=True
+#                                blend=False # No apparent change
         )
-        self.lidMap    = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['lid.art'],
-                                      mipmap=False, # True, doesn't look as good
-                                      filter=pi3d.GL_LINEAR,
-#                                      filter=pi3d.GL_NEAREST, # Doesn't look as good
-                                      blend=True
-#                                      blend=False # No apparent change
+        self.lidMap    = pi3d.Texture(self.cfg_db[eye_context]['lid.art'],
+                                 mipmap=False, # True, doesn't look as good
+                                 filter=pi3d.GL_LINEAR,
+#                                filter=pi3d.GL_NEAREST, # Doesn't look as good
+                                 blend=True
+#                                blend=False # No apparent change
         )
         # U/V map may be useful for debugging texture placement; not normally used
         #uvMap     = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
         #              filter=pi3d.GL_LINEAR, blend=False, m_repeat=True)
 
-    def init_geometry_iris(self):
+        if eye_context is not None:
+            self.eye_cache[eye_context]['irisMap'] = self.irisMap
+            self.eye_cache[eye_context]['scleraMap'] = self.scleraMap
+            self.eye_cache[eye_context]['lidMap'] = self.lidMap
+
+    def init_geometry_iris(self,eye_context=None):
         # Generate initial iris mesh; vertex elements will get replaced on
         # a per-frame basis in the main loop, this just sets up textures, etc.
         if self.cfg_db['eye_orientation'] in ['right']:        
@@ -378,12 +453,16 @@ class gecko_eye_t(object):
             self.iris = meshInit(32, 4, True, 0.5, 0.5/self.irisMap.iy, False)
         else:
             raise
-        
+            
         self.iris.set_textures([self.irisMap])
         self.iris.set_shader(self.shader)
         self.irisZ = zangle(self.irisPts, self.eyeRadius)[0] * 0.99 # Get iris Z depth, for later
 
-    def init_geometry_eyelids(self):
+        if eye_context is not None:
+            self.eye_cache[eye_context]['iris'] = self.iris
+            self.eye_cache[eye_context]['irisZ'] = self.irisZ
+        
+    def init_geometry_eyelids(self,eye_context=None):
         # Eyelid meshes are likewise temporary; texture coordinates are
         # assigned here but geometry is dynamically regenerated in main loop.
         self.upperEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
@@ -393,7 +472,11 @@ class gecko_eye_t(object):
         self.lowerEyelid.set_textures([self.lidMap])
         self.lowerEyelid.set_shader(self.shader)
 
-    def init_geometry_sclera(self):
+        if eye_context is not None:
+            self.eye_cache[eye_context]['upperEyelid'] = self.upperEyelid
+            self.eye_cache[eye_context]['lowerEyelid'] = self.lowerEyelid
+
+    def init_geometry_sclera(self,eye_context=None):
         # Generate sclera for eye...start with a 2D shape for lathing...
         angle1 = zangle(self.scleraFrontPts, self.eyeRadius)[1] # Sclera front angle
         angle2 = zangle(self.scleraBackPts , self.eyeRadius)[1] # " back angle
@@ -421,8 +504,12 @@ class gecko_eye_t(object):
             reAxis(self.eye, 0.5)
         else:
             raise
+
+        if eye_context is not None:
+            self.eye_cache[eye_context]['eye'] = self.eye
+
         
-    def init_geometry(self):
+    def init_geometry(self,eye_context=None):
         # Initialize static geometry -----------------------------------------------
 
         # Transform point lists to eye dimensions
@@ -473,9 +560,9 @@ class gecko_eye_t(object):
         d  = dx * dx + dy * dy
         if d > 0: self.lowerLidRegenThreshold = 0.5 / math.sqrt(d)
 
-        self.init_geometry_iris()
-        self.init_geometry_eyelids()
-        self.init_geometry_sclera()
+        self.init_geometry_iris(eye_context)
+        self.init_geometry_eyelids(eye_context)
+        self.init_geometry_sclera(eye_context)
 
         
     def init_globals(self):
@@ -534,35 +621,65 @@ class gecko_eye_t(object):
               endValue,   # Pupil scale ending value (")
               duration,   # Start-to-end time, floating-point seconds
               range):     # +/- random pupil scale at midpoint
+        
         do_exit = False
 	startTime = time.time()
 	if range >= 0.125: # Limit subdvision count, because recursion
-		duration *= 0.5 # Split time & range in half for subdivision,
-		range    *= 0.5 # then pick random center point within range:
-		midValue  = ((startValue + endValue - range) * 0.5 +
-		             random.uniform(0.0, range))
-		do_exit |= self.split(startValue, midValue, duration, range)
-                if not do_exit:
-		    do_exit |= self.split(midValue  , endValue, duration, range)
-                self.init_keyboard()
+	    duration *= 0.5 # Split time & range in half for subdivision,
+	    range    *= 0.5 # then pick random center point within range:
+	    midValue  = ((startValue + endValue - range) * 0.5 +
+		         random.uniform(0.0, range))
+	    do_exit |= self.split(startValue, midValue, duration, range)
+            if not do_exit:
+		do_exit |= self.split(midValue  , endValue, duration, range)
+            self.init_keyboard()
 	else: # No more subdivisons, do iris motion...
-		dv = endValue - startValue
-		while not do_exit:
-			dt = time.time() - startTime
-			if dt >= duration: break
-                        if self.pupil_event_queued: break
-                        if self.eye_context_next is not None: break                        
-			v = startValue + dv * dt / duration
-			if   v < self.cfg_db['pupil_min']: v = self.cfg_db['pupil_min']
-			elif v > self.cfg_db['pupil_max']: v = self.cfg_db['pupil_max']
-			self.frame(v) # Draw frame w/interim pupil scale value
-                        self.do_wearables()
-                        self.do_eye_comm()                        
-                        self.do_joystick()
-                        do_exit |= self.keyboard_sample()
+	    dv = endValue - startValue
+	    while not do_exit:
+                now_sec = time.time()
+		dt = now_sec - startTime
+		if dt >= duration: break
+                if self.pupil_event_queued: break
+                if self.eye_context_next is not None: break                        
+		v = startValue + dv * dt / duration
+		if   v < self.cfg_db['pupil_min']: v = self.cfg_db['pupil_min']
+		elif v > self.cfg_db['pupil_max']: v = self.cfg_db['pupil_max']
+		self.frame(v) # Draw frame w/interim pupil scale value
+                self.do_wearables()
+                self.do_eye_comm()                        
+                self.do_joystick()
+                do_exit |= self.keyboard_sample()
+                    
+                if int(now_sec - self.last_eye_art_sec) > self.cfg_db['demo_eye_tenure_secs']:
+                    self.last_eye_art_sec = now_sec
+                    next_eye = self.random_next_eye()
+                    self.EYE_SELECT = self.switch_eye_context(next_eye)
+                    self.draw_eye()
 
         return do_exit
 
+    def draw_eye(self):
+	#convergence = 2.0
+        convergence = 0.0        
+        if self.cfg_db['eye_orientation'] in ['right']:
+	    self.iris.rotateToX(self.curY)
+	    self.iris.rotateToY(self.curX - convergence)
+	    self.iris.draw()
+	    self.eye.rotateToX(self.curY - convergence)
+	    self.eye.rotateToY(self.curX)
+        elif self.cfg_db['eye_orientation'] in ['left']:
+	    self.iris.rotateToX(self.curY)
+	    self.iris.rotateToY(self.curX + convergence)
+	    self.iris.draw()
+	    self.eye.rotateToX(self.curY)
+	    self.eye.rotateToY(self.curX + convergence)
+        else:
+            raise
+            
+	self.eye.draw()
+        self.upperEyelid.draw()
+        self.lowerEyelid.draw()
+    
     # Generate one frame of imagery
     def frame(self,p):
 	self.DISPLAY.loop_running()
@@ -803,26 +920,7 @@ class gecko_eye_t(object):
             self.rlRegen = False
 
 	# Draw eye
-	#convergence = 2.0
-        convergence = 0.0        
-        if self.cfg_db['eye_orientation'] in ['right']:
-	    self.iris.rotateToX(self.curY)
-	    self.iris.rotateToY(self.curX - convergence)
-	    self.iris.draw()
-	    self.eye.rotateToX(self.curY - convergence)
-	    self.eye.rotateToY(self.curX)
-        elif self.cfg_db['eye_orientation'] in ['left']:
-	    self.iris.rotateToX(self.curY)
-	    self.iris.rotateToY(self.curX + convergence)
-	    self.iris.draw()
-	    self.eye.rotateToX(self.curY)
-	    self.eye.rotateToY(self.curX + convergence)
-        else:
-            raise
-            
-	self.eye.draw()
-        self.upperEyelid.draw()
-        self.lowerEyelid.draw()
+        self.draw_eye()
 
     def keyboard_sample(self):
         self.init_keyboard()
@@ -889,6 +987,13 @@ class gecko_eye_t(object):
             
         self.update_eye_events()
 
+    def random_next_eye(self):
+        next_eye = self.EYE_SELECT
+        while next_eye is self.EYE_SELECT:
+            next_eye = random.choice(['cyclops','dragon','hack'])
+
+        return next_eye
+        
     def map_wearables_events(self,wearable_events):
         eye_events = []
         for event in wearable_events:
@@ -897,7 +1002,7 @@ class gecko_eye_t(object):
             elif event in ['radiaterainbow']:
                 eye_events.append('eye_northeast')
             elif event in ['rider']:
-                eye_events.append('eye_right')                
+                eye_events.append('eye_right')
             elif event in ['threesine']:
                 eye_events.append('eye_southeast')
             elif event in ['flame']:
@@ -909,6 +1014,11 @@ class gecko_eye_t(object):
             else:
                 print ('** Unmapped wearables event: {}'.format(event))
 
+        if len(eye_events) > 0:
+            next_eye = self.random_next_eye()
+            self.EYE_SELECT = self.switch_eye_context(next_eye)
+            self.draw_eye()
+                
         return eye_events
     
     def do_wearables(self):
@@ -980,7 +1090,7 @@ class gecko_eye_t(object):
             self.cfg_db['eye_orientation'] = random.choice(['left','right'])
             print ('eye_orientation: {}'.format(self.cfg_db['eye_orientation']))
             
-        last_eye_art_sec = time.time()
+        self.last_eye_art_sec = time.time()
         while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
                 raise
@@ -1033,19 +1143,15 @@ class gecko_eye_t(object):
             self.currentPupilScale = v
             #do_exit = self.keyboard_sample()
             now_sec = time.time()
-            eye_tenure_sec = self.cfg_db['blink_interval_min_sec'] * 2 # about 2 blinks
-            if int(now_sec - last_eye_art_sec) > eye_tenure_sec:
+            if self.cfg_db['timeout_secs'] is not None and \
+               int(now_sec - last_eye_art_sec) > self.cfg_db['timeout_secs']:
                 do_exit |= True
-    
-            
+
         if do_exit:
+            raise
             #print ('exiting')
             if self.cfg_db['demo']:
-                global eye_contexts, eye_context_ptr
-
-                self.eye_context_next = eye_contexts[eye_context_ptr]
-                eye_context_ptr += 1
-                eye_context_ptr %= len(eye_contexts)
+                self.eye_context_next = self.EYE_SELECT                
             else:
                 self.eye_context_next = None
 
@@ -1208,20 +1314,13 @@ class gecko_eye_t(object):
 
         
 if __name__ == "__main__":
-    eye_contexts = ['cyclops','hack','dragon']
-    eye_context_ptr = 0
     eye_context = None
     time_first_sec = time.time()    
     timeout = False
     while True and not timeout:
         leak_check()
         gecko_eye = gecko_eye_t(EYE_SELECT=eye_context)
-        if False:
-            eye_context = eye_contexts[eye_context_ptr]
-            eye_context_ptr += 1
-            eye_context_ptr %= len(eye_contexts)
-        else:
-            eye_context = gecko_eye.run()
+        eye_context = gecko_eye.run()
         if gecko_eye.cfg_db['timeout_secs'] is not None:
             now_sec = time.time()
             if now_sec > time_first_sec + gecko_eye.cfg_db['timeout_secs']:
