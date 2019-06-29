@@ -129,8 +129,8 @@ class gecko_eye_t(object):
             'pupil_max': 1.0,   # Upper "
             'pupil_normal': 0.5,   # Normal pupil dilation
             'AUTOBLINK' : True,  # If True, eye blinks autonomously
-            #AUTOBLINK       = False  # If True, eye blinks autonomously
-
+            #AUTOBLINK       = False,  # If True, eye blinks autonomously
+            'switch_on_blink' : True,
             'blink_angry_duration_close_min_sec' : 0.10, # original: 0.06
             'blink_angry_duration_close_max_sec' : 0.30, # original: 0.12
             'blink_angry_duration_open_min_sec' : 0.06, # original: 0.06
@@ -169,7 +169,10 @@ class gecko_eye_t(object):
 
             'move_duration_joystick_sec' : 0.10, # 0.12
             'emotion_interval_sec' : 8.0, # Interval between next emotion
-            
+
+            #
+            # Eye graphics definitions
+            #
             'cyclops': {
 		'eye.shape': 'graphics/cyclops-eye.svg',
 		'iris.art': 'graphics/iris.jpg',
@@ -197,7 +200,10 @@ class gecko_eye_t(object):
                 'sclera.art': 'hack_graphics/sclera.jpg',
 	    },
 
+            #
             # Network related
+            #
+            
             # Wearables
             'port_wearables' : 0xDF0D,
             'mcaddr_wearables' : '239.255.223.01',
@@ -241,6 +247,8 @@ class gecko_eye_t(object):
         #self.init_geometry_eyelids()
         #self.init_geometry_sclera()
 
+        self.draw_eye()
+        
         return eye_context
         
     def init(self,eye_contexts):
@@ -608,6 +616,10 @@ class gecko_eye_t(object):
         self.blinkDuration   = 0.1
         self.blinkStartTime  = 0
 
+        # Eye context switch setup
+        self.eye_switch_pending = False
+        self.eye_switch_next = None
+        
         self.trackingPos = 0.3        
 
         self.update_eye_events(reset=True)
@@ -653,8 +665,12 @@ class gecko_eye_t(object):
                 if int(now_sec - self.last_eye_art_sec) > self.cfg_db['demo_eye_tenure_secs']:
                     self.last_eye_art_sec = now_sec
                     next_eye = self.random_next_eye()
-                    self.EYE_SELECT = self.switch_eye_context(next_eye)
-                    self.draw_eye()
+                    if self.cfg_db['switch_on_blink']:
+                        if not self.eye_switch_pending:
+                            self.eye_switch_pending = True
+                            self.eye_switch_next = next_eye
+                    else:
+                        self.EYE_SELECT = self.switch_eye_context(next_eye)
 
         return do_exit
 
@@ -825,13 +841,17 @@ class gecko_eye_t(object):
 		if (self.blinkState == BLINK_CLOSING and # Enblinking and...
                     self.event_blink == 0):
 		    # Don't advance yet; eye is held closed
-		    pass
+                    pass
 		else:
 		    self.blinkState += 1
 		    if self.blinkState > BLINK_OPENING:
 			self.blinkState = BLINK_NONE # NOBLINK
 		    else: # infer BLINK_OPENING
                         assert (self.blinkState == BLINK_OPENING)
+                        if self.eye_switch_pending:
+                            self.eye_switch_pending = False
+                            self.EYE_SELECT = self.switch_eye_context(self.eye_switch_next)
+                            self.eye_switch_next = None
                         if self.event_overrideBlinkDurationOpen is not None:
                             duration = self.event_overrideBlinkDurationOpen
                             #self.event_overrideBlinkDurationOpen = None
@@ -1016,8 +1036,12 @@ class gecko_eye_t(object):
 
         if len(eye_events) > 0:
             next_eye = self.random_next_eye()
-            self.EYE_SELECT = self.switch_eye_context(next_eye)
-            self.draw_eye()
+            if self.cfg_db['switch_on_blink']:
+                if not self.eye_switch_pending:
+                    self.eye_switch_pending = True
+                    self.eye_switch_next = next_eye
+            else:
+                self.EYE_SELECT = self.switch_eye_context(next_eye)
                 
         return eye_events
     
