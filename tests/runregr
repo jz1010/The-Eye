@@ -27,7 +27,7 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
 
     # Use case development
     export EYE_SELECT="hack"
-    ${DVROOT}/run
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS}
 #    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
 fi
 
