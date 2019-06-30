@@ -20,8 +20,14 @@ from wearables import wearables_client_t, wearables_server_t
 # These need to be globals in order to avoid a memory leak
 DISPLAY = pi3d.Display.create(samples=4)
 cam    = pi3d.Camera(is_3d=False, at=(0,0,0), eye=(0,0,-1000))
-shader = pi3d.Shader("uv_light")
-light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.2, 0.2, 0.2))
+#cam    = pi3d.Camera(is_3d=True, at=(0,0,0), eye=(0,0,-1000)) # Interesting more ball-like
+shader = pi3d.Shader("uv_light") # default - light source has impact
+#shader = pi3d.Shader("uv_flat") # evenly lighted - perhaps this is good
+#shader = pi3d.Shader("mat_flat") # weird
+light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.2, 0.2, 0.2)) # default
+#light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.3, 0.3, 0.3)) 
+#light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.1, 0.1, 0.1)) # too dim
+#light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.8, 0.8, 0.8)) # looks washed out
 
 # Blinking states
 BLINK_NONE = 0
@@ -424,24 +430,28 @@ class gecko_eye_t(object):
     def load_textures(self,eye_context=None):
         # Load texture maps --------------------------------------------------------
 
-        self.irisMap   = pi3d.Texture(self.cfg_db[eye_context]['iris.art'],
-                                 mipmap=False, # True, doesn't look as good
-                                 filter=pi3d.GL_LINEAR
-#                                filter=pi3d.GL_NEAREST  # Doesn't look as good
+        defer_loading = False # Pre-cache textures at setup
+        self.irisMap = pi3d.Texture(self.cfg_db[eye_context]['iris.art'],
+                                    mipmap=False, # True, doesn't look as good
+                                    defer=defer_loading,
+                                    filter=pi3d.GL_LINEAR
+#                                   filter=pi3d.GL_NEAREST  # Doesn't look as good
         )
         self.scleraMap = pi3d.Texture(self.cfg_db[eye_context]['sclera.art'],
-                                 mipmap=False, # True, doesn't look as good
-                                 filter=pi3d.GL_LINEAR,
-#                                filter=pi3d.GL_NEAREST, # Doesn't look as good
-                                 blend=True
-#                                blend=False # No apparent change
+                                      mipmap=False, # True, doesn't look as good
+                                      defer=defer_loading,                                      
+                                      filter=pi3d.GL_LINEAR,
+#                                     filter=pi3d.GL_NEAREST, # Doesn't look as good
+                                      blend=True
+#                                     blend=False # No apparent change
         )
-        self.lidMap    = pi3d.Texture(self.cfg_db[eye_context]['lid.art'],
-                                 mipmap=False, # True, doesn't look as good
-                                 filter=pi3d.GL_LINEAR,
-#                                filter=pi3d.GL_NEAREST, # Doesn't look as good
-                                 blend=True
-#                                blend=False # No apparent change
+        self.lidMap = pi3d.Texture(self.cfg_db[eye_context]['lid.art'],
+                                   mipmap=False, # True, doesn't look as good
+                                   filter=pi3d.GL_LINEAR,
+                                   defer=defer_loading,                                   
+#                                  filter=pi3d.GL_NEAREST, # Doesn't look as good
+                                   blend=True
+#                                  blend=False # No apparent change
         )
         # U/V map may be useful for debugging texture placement; not normally used
         #uvMap     = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
