@@ -158,8 +158,8 @@ class gecko_eye_t(object):
             'blink_interval_min_sec' : 15.0, # original: 3.0
             'blink_interval_range_sec' : 4.0, # original: 4.0
             
-            'blink_duration_user_min_sec' : 0.035, # caused by Joystick 
-            'blink_duration_user_max_sec' : 0.06, # caused by Joystick
+            'blink_duration_joystickmin_sec' : 0.035, # caused by Joystick 
+            'blink_duration_joystickmax_sec' : 0.06, # caused by Joystick
             
             'pupil_auto_expand_sec' : 12.0,
             'pupil_auto_contract_sec' : 4.0,
@@ -345,7 +345,6 @@ class gecko_eye_t(object):
             
             # Set up state kept from events sampled from joystick
             if self.joystick.get_status():
-                self.event_blink = 1
                 self.update_eye_events(reset=True)
             else:
                 self.joystick = None
@@ -838,7 +837,6 @@ class gecko_eye_t(object):
 	if self.event_doBlink or \
            (self.cfg_db['AUTOBLINK'] and \
             (now_sec - self.timeOfLastBlink) >= self.timeToNextBlink):
-            self.event_doBlink = False
 	    # Similar to movement, eye blinks are slower in this version
 	    self.timeOfLastBlink = now_sec
             if self.event_overrideBlinkDurationClose is not None:
@@ -848,11 +846,12 @@ class gecko_eye_t(object):
 		duration = random.uniform(self.cfg_db['blink_duration_close_min_sec'],
                                           self.cfg_db['blink_duration_close_max_sec'])
 	    if self.blinkState != BLINK_CLOSING: # infer BLINK_NONE (or BLINK_OPENING?)
-		self.blinkState     = BLINK_CLOSING 
+		self.blinkState = BLINK_CLOSING 
 		self.blinkStartTime = now_sec
-		self.blinkDuration  = duration
+		self.blinkDuration = duration
             self.timeToNextBlink = duration * self.cfg_db['blink_interval_min_sec'] + \
                 random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
+            self.event_doBlink = False
 
 	if self.blinkState: # Eye currently winking/blinking (BLINK_CLOSING or BLINK_OPENING)
 	    # Check if blink time has elapsed...
@@ -885,8 +884,8 @@ class gecko_eye_t(object):
             if self.event_blink == 0:
                 self.blinkState     = BLINK_CLOSING
                 self.blinkStartTime = now_sec
-                self.blinkDuration  = random.uniform(self.cfg_db['blink_duration_user_min_sec'],
-                                                     self.cfg_db['blink_duration_user_max_sec'])
+                self.blinkDuration  = random.uniform(self.cfg_db['blink_duration_joystickmin_sec'],
+                                                     self.cfg_db['blink_duration_joystickmax_sec'])
 
 	if self.cfg_db['TRACKING']:
 		# 0 = fully up, 1 = fully down
@@ -897,8 +896,10 @@ class gecko_eye_t(object):
 
 	if self.blinkState: # blink opening/closing
 		n = (now_sec - self.blinkStartTime) / self.blinkDuration
-		if n > 1.0: n = 1.0
-		if self.blinkState == BLINK_OPENING: n = 1.0 - n
+		if n > 1.0:
+                    n = 1.0
+		if self.blinkState == BLINK_OPENING:
+                    n = 1.0 - n
 	else: # infer BLINK_NONE, Not blinking
 		n = 0.0
         self.newUpperLidWeight = self.trackingPos + (n * (1.0 - self.trackingPos))
@@ -1015,6 +1016,10 @@ class gecko_eye_t(object):
                     self.pupil_event_queued = True
             elif event in ['blink']:
                 self.event_blink ^= 1
+                self.event_doBlink = True
+                self.event_overrideBlinkDurationClose = \
+                    random.uniform(self.cfg_db['blink_duration_joystickmin_sec'],
+                                   self.cfg_db['blink_duration_joystickmax_sec'])
             elif event in ['eye_context_9']:
                 self.eye_context_next = 'dragon'
             elif event in ['eye_context_11']:
@@ -1121,8 +1126,15 @@ class gecko_eye_t(object):
         elif self.joystick is not None:
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
+            eye_event_last = None
             for eye_event in gecko_events:
-                self.eye_server.send_msg(eye_event)            
+                # Debounce certain events
+                if eye_event is eye_event_last and \
+                   eye_event in ['blink']:
+                    continue
+                
+                self.eye_server.send_msg(eye_event)
+                eye_event_last = eye_event
             self.joystick_polls +=1
             self.joystick_msg_cnt += len(gecko_events)
         
