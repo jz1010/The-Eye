@@ -21,9 +21,15 @@ from wearables import wearables_client_t, wearables_server_t
 DISPLAY = pi3d.Display.create(samples=4)
 cam    = pi3d.Camera(is_3d=False, at=(0,0,0), eye=(0,0,-1000))
 #cam    = pi3d.Camera(is_3d=True, at=(0,0,0), eye=(0,0,-1000)) # Interesting more ball-like
-shader = pi3d.Shader("uv_light") # default - light source has impact
-#shader = pi3d.Shader("uv_flat") # evenly lighted - perhaps this is good
-#shader = pi3d.Shader("mat_flat") # weird
+
+# TODO - choose a shader
+#shader = pi3d.Shader("uv_light") # default - light source has impact
+shader = pi3d.Shader("uv_flat") # evenly lighted - perhaps this is good
+shader_reflect = pi3d.Shader("uv_reflect") # evenly lighted - perhaps this is good
+#shader = pi3d.Shader("mat_flat") # weird, no lights
+#shader = pi3d.Shader("mat_reflect") # weird
+#shader = pi3d.Shader("uv_toon") # no video
+
 light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.2, 0.2, 0.2)) # default
 #light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.3, 0.3, 0.3)) 
 #light  = pi3d.Light(lightpos=(0, -500, -500), lightamb=(0.1, 0.1, 0.1)) # too dim
@@ -474,6 +480,7 @@ class gecko_eye_t(object):
             
         self.iris.set_textures([self.irisMap])
         self.iris.set_shader(self.shader)
+        #self.iris.set_shader(shader_reflect)
         self.irisZ = zangle(self.irisPts, self.eyeRadius)[0] * 0.99 # Get iris Z depth, for later
 
         if eye_context is not None:
@@ -486,9 +493,11 @@ class gecko_eye_t(object):
         self.upperEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
         self.upperEyelid.set_textures([self.lidMap])
         self.upperEyelid.set_shader(self.shader)
+        #self.upperEyelid.set_shader(shader_reflect)
         self.lowerEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
         self.lowerEyelid.set_textures([self.lidMap])
         self.lowerEyelid.set_shader(self.shader)
+        #self.lowerEyelid.set_shader(shader_reflect)
 
         if eye_context is not None:
             self.eye_cache[eye_context]['upperEyelid'] = self.upperEyelid
@@ -516,6 +525,7 @@ class gecko_eye_t(object):
         #self.eye = pi3d.Lathe(path=pts, sides=2048)        
         self.eye.set_textures([self.scleraMap])
         self.eye.set_shader(self.shader)
+        #self.eye.set_shader(shader_reflect)
         if self.cfg_db['eye_orientation'] in ['right']:
             reAxis(self.eye, 0.0)
         elif self.cfg_db['eye_orientation'] in ['left']:
@@ -1111,7 +1121,8 @@ class gecko_eye_t(object):
         elif self.joystick is not None:
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
-            self.eye_server.send_msg(eye_event)            
+            for eye_event in gecko_events:
+                self.eye_server.send_msg(eye_event)            
             self.joystick_polls +=1
             self.joystick_msg_cnt += len(gecko_events)
         
