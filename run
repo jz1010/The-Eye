@@ -5,7 +5,7 @@ set -euxo pipefail
 DVROOT=${DVROOT:-.}
 
 AUTOBLINK=${AUTOBLINK:-1}
-EYE_SELECT=${EYE_SELECT:-"dragon"}
+EYE_SELECT=${EYE_SELECT:-"hack"}
 EYE_SHAPE=${EYE_SHAPE:-"None"}
 IRIS_ART=${IRIS_ART:-"None"}
 LID_ART=${LID_ART:-"None"}
