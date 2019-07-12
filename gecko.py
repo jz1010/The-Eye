@@ -23,9 +23,10 @@ cam    = pi3d.Camera(is_3d=False, at=(0,0,0), eye=(0,0,-1000))
 #cam    = pi3d.Camera(is_3d=True, at=(0,0,0), eye=(0,0,-1000)) # Interesting more ball-like
 
 # TODO - choose a shader
-#shader = pi3d.Shader("uv_light") # default - light source has impact
-shader = pi3d.Shader("uv_flat") # evenly lighted - perhaps this is good
+shader = pi3d.Shader("uv_light") # default - light source has impact
+#shader = pi3d.Shader("uv_flat") # evenly lighted - perhaps this is good
 shader_reflect = pi3d.Shader("uv_reflect") # evenly lighted - perhaps this is good
+#shader = shader_reflect
 #shader = pi3d.Shader("mat_flat") # weird, no lights
 #shader = pi3d.Shader("mat_reflect") # weird
 #shader = pi3d.Shader("uv_toon") # no video
@@ -50,8 +51,11 @@ class gecko_eye_t(object):
         if EYE_SELECT is not None:
             self.EYE_SELECT = EYE_SELECT
         elif self.EYE_SELECT is None:
-            self.EYE_SELECT = os.getenv('EYE_SELECT','dragon')
+            self.EYE_SELECT = os.getenv('EYE_SELECT','hack')
 
+        print('EYE_SELECT: {}'.format(self.EYE_SELECT))
+        #raise
+    
         self.keyboard = None
         self.joystick = None
 
@@ -198,18 +202,32 @@ class gecko_eye_t(object):
 		'sclera.art': 'graphics/dragon-sclera.png'
             },
             'hack': {
-#		'eye.shape': 'hack_graphics/cyclops-eye.svg',                
+		'eye.shape': 'graphics/cyclops-eye.svg',                
 #		'eye.shape': 'hack_graphics/dragon-eye.svg',
-		'eye.shape': 'hack_graphics/gecko-eye_0.svg',                
-		'iris.art': 'hack_graphics/iris.jpg',
+#		'eye.shape': 'hack_graphics/gecko-eye_0.svg',                
+#		'iris.art': 'hack_graphics/iris.jpg',
+
+                # Trent
+		'iris.art': 'hack_graphics/Metal Iris_00145.jpg',
+#		'iris.art': 'hack_graphics/Metal iris animated 1.gif',
+#		'iris.art': 'hack_graphics/Metal Iris animated 2_[00168-00288].gif',
+#		'iris.art': 'graphics/uv.png',                
+#		'iris.art': 'hack_graphics/Organic eye_01081.jpg',                
+                
 #		'iris.art': 'hack_graphics/dragon-iris.jpg',                
 		'lid.art': 'hack_graphics/lid.png',
+#		'lid.art': 'graphics/uv.png',                
+                
 #		'sclera.art': 'hack_graphics/dragon-sclera.png',
 #		'sclera.art': 'hack_graphics/dragon-iris.jpg'
 #		'sclera.art': 'hack_graphics/gecko_s_eye_by_mchahine_d2en705-fullview.jpg'
 #                'sclera.art': 'hack_graphics/leopard-gecko-3381555_960_720.jpg',
 #                'sclera.art': 'hack_graphics/Ds4CWFgV4AAlhWK.jpg_large.jpg',
-                'sclera.art': 'hack_graphics/sclera.jpg',
+#                'sclera.art': 'hack_graphics/sclera.jpg',
+
+                # Trent
+                'sclera.art': 'hack_graphics/Circuit sclera_00000.jpg',
+#		'sclera.art': 'hack_graphics/Organic eye_01081.jpg',                
 	    },
 
             #
@@ -282,9 +300,9 @@ class gecko_eye_t(object):
                 self.init_globals()
             
         # Set eye context
-        next_eye = 'cyclops'
+        #next_eye = 'cyclops'
         #next_eye = 'dragon'
-        self.EYE_SELECT = self.switch_eye_context(next_eye)
+        self.EYE_SELECT = self.switch_eye_context(self.EYE_SELECT)
 
         # Independent of rendering setup
         self.init_keyboard()
@@ -459,13 +477,14 @@ class gecko_eye_t(object):
 #                                  blend=False # No apparent change
         )
         # U/V map may be useful for debugging texture placement; not normally used
-        #uvMap     = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
-        #              filter=pi3d.GL_LINEAR, blend=False, m_repeat=True)
+        #self.uvMap = pi3d.Texture(self.cfg_db[self.EYE_SELECT]['uv.art'], mipmap=False,
+        #                          filter=pi3d.GL_LINEAR, blend=False, m_repeat=True)
 
         if eye_context is not None:
             self.eye_cache[eye_context]['irisMap'] = self.irisMap
             self.eye_cache[eye_context]['scleraMap'] = self.scleraMap
             self.eye_cache[eye_context]['lidMap'] = self.lidMap
+            #self.eye_cache[eye_context]['uvMap'] = self.uvMap
 
     def init_geometry_iris(self,eye_context=None):
         # Generate initial iris mesh; vertex elements will get replaced on
@@ -490,6 +509,7 @@ class gecko_eye_t(object):
         # Eyelid meshes are likewise temporary; texture coordinates are
         # assigned here but geometry is dynamically regenerated in main loop.
         self.upperEyelid = meshInit(33, 5, False, 0, 0.5/self.lidMap.iy, True)
+        #self.upperEyelid = meshInit(40, 7, False, 0, 0.5/self.lidMap.iy, True)        
         self.upperEyelid.set_textures([self.lidMap])
         self.upperEyelid.set_shader(self.shader)
         #self.upperEyelid.set_shader(shader_reflect)
@@ -681,7 +701,8 @@ class gecko_eye_t(object):
                 self.do_joystick()
                 do_exit |= self.keyboard_sample()
                     
-                if int(now_sec - self.last_eye_art_sec) > self.cfg_db['demo_eye_tenure_secs']:
+                if self.cfg_db['demo'] and \
+                   int(now_sec - self.last_eye_art_sec) > self.cfg_db['demo_eye_tenure_secs']:
                     self.last_eye_art_sec = now_sec
                     next_eye = self.random_next_eye()
                     if self.cfg_db['switch_on_blink']:
@@ -1208,7 +1229,9 @@ class gecko_eye_t(object):
         if do_exit:
             print ('exiting')
             if self.cfg_db['demo']:
-                self.eye_context_next = self.EYE_SELECT                
+                self.eye_context_next = self.EYE_SELECT
+            elif self.EYE_SELECT in ['hack']:
+                self.eye_context_next = self.EYE_SELECT                                
             else:
                 self.eye_context_next = None
 
