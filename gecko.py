@@ -124,7 +124,8 @@ class gecko_eye_t(object):
         self.cfg_db['demo'] = args.demo
         self.cfg_db['joystick_test'] = args.joystick_test
         self.cfg_db['timeout_secs'] = args.timeout_secs
-        
+
+    
     def init_cfg_db(self):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
@@ -243,10 +244,45 @@ class gecko_eye_t(object):
             'mcaddr_eyes' : '239.255.223.02'
         }
 
+        self.hack_scleras = [
+            'hack_graphics/Circuit sclera_00000.jpg',
+            'hack_graphics/Circuit sclera_00001.jpg',
+            'hack_graphics/Circuit sclera_00002.jpg',
+            'hack_graphics/Circuit sclera_00003.jpg',
+            'hack_graphics/Circuit sclera_00004.jpg',
+            'hack_graphics/Circuit sclera_00005.jpg',
+            'hack_graphics/Circuit sclera_00006.jpg',
+            'hack_graphics/Circuit sclera_00007.jpg',
+            'hack_graphics/Circuit sclera_00008.jpg',
+            'hack_graphics/Circuit sclera_00009.jpg',
+            'hack_graphics/Circuit sclera_00010.jpg',
+            'hack_graphics/Circuit sclera_00011.jpg',
+            'hack_graphics/Circuit sclera_00012.jpg',
+            'hack_graphics/Circuit sclera_00013.jpg',
+            'hack_graphics/Circuit sclera_00014.jpg',
+            'hack_graphics/Circuit sclera_00015.jpg',            
+        ]
+        self.hack_iris = [
+	    'hack_graphics/Metal Iris_00145.jpg',
+	    'hack_graphics/Metal Iris_00146.jpg',
+	    'hack_graphics/Metal Iris_00147.jpg',
+	    'hack_graphics/Metal Iris_00148.jpg',
+	    'hack_graphics/Metal Iris_00149.jpg',
+	    'hack_graphics/Metal Iris_00150.jpg',
+	    'hack_graphics/Metal Iris_00151.jpg',
+	    'hack_graphics/Metal Iris_00152.jpg',
+	    'hack_graphics/Metal Iris_00153.jpg',            
+        ]
+        
     def switch_eye_context(self,eye_context):
         if eye_context is None:
             return
 
+        if eye_context in ['hack']:
+            self.load_textures(eye_context)
+            self.iris.set_textures([self.irisMap])
+            self.eye.set_textures([self.scleraMap])            
+            
         #print (self.eye_cache[eye_context])
         self.vb = self.eye_cache[eye_context]['vb']
         self.pupilMinPts = self.eye_cache[eye_context]['pupilMinPts']
@@ -454,13 +490,23 @@ class gecko_eye_t(object):
         # Load texture maps --------------------------------------------------------
 
         defer_loading = False # Pre-cache textures at setup
-        self.irisMap = pi3d.Texture(self.cfg_db[eye_context]['iris.art'],
+        if eye_context in ['hack']:
+            fname_iris = random.choice(self.hack_iris)
+        else:
+            fname_iris = self.cfg_db[eye_context]['iris.art']
+        print ('fname_iris: {}'.format(fname_iris))
+        self.irisMap = pi3d.Texture(fname_iris,
                                     mipmap=False, # True, doesn't look as good
                                     defer=defer_loading,
                                     filter=pi3d.GL_LINEAR
 #                                   filter=pi3d.GL_NEAREST  # Doesn't look as good
         )
-        self.scleraMap = pi3d.Texture(self.cfg_db[eye_context]['sclera.art'],
+        if eye_context in ['hack']:
+            fname_sclera = random.choice(self.hack_scleras)
+        else:
+            fname_sclera = self.cfg_db[eye_context]['sclera.art']
+        print ('fname_sclera: {}'.format(fname_sclera))            
+        self.scleraMap = pi3d.Texture(fname_sclera,
                                       mipmap=False, # True, doesn't look as good
                                       defer=defer_loading,                                      
                                       filter=pi3d.GL_LINEAR,
