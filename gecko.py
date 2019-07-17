@@ -79,7 +79,9 @@ class gecko_eye_t(object):
     def parse_args(self):
         self.parser = argparse.ArgumentParser(description="Parse arguments")
         self.parser.add_argument('--demo',default=self.cfg_db['demo'],
-                                 action='store_true',help='Demo mode (headless, various eye animations)')
+                                 action='store_true',help='Demo mode (various eye animations)')
+        self.parser.add_argument('--playa',default=self.cfg_db['playa'],
+                                 action='store_true',help='Playa mode (playa eye animations)')
         self.parser.add_argument('--joystick_test',default=self.cfg_db['joystick_test'],
                                  action='store_true',help='Inject joystick test messages')
         self.parser.add_argument('--timeout_secs',default=self.cfg_db['timeout_secs'],
@@ -122,6 +124,10 @@ class gecko_eye_t(object):
 
         self.cfg_db['eye_orientation'] = args.eye_orientation
         self.cfg_db['demo'] = args.demo
+        self.cfg_db['playa'] = args.playa
+
+        assert (not (self.cfg_db['demo'] and self.cfg_db['playa']))
+        
         self.cfg_db['joystick_test'] = args.joystick_test
         self.cfg_db['timeout_secs'] = args.timeout_secs
 
@@ -130,6 +136,7 @@ class gecko_eye_t(object):
         self.cfg_db = {
             'demo': False, # Demo mode boolean
             'demo_eye_tenure_secs' : 3,
+            'playa' : False, # Playa mode operation
             'joystick_test' : False, # No test messages from joystick
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
