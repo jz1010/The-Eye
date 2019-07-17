@@ -163,8 +163,8 @@ class gecko_eye_t(object):
             'blink_interval_min_sec' : 15.0, # original: 3.0
             'blink_interval_range_sec' : 4.0, # original: 4.0
             
-            'blink_duration_joystickmin_sec' : 0.035, # caused by Joystick 
-            'blink_duration_joystickmax_sec' : 0.06, # caused by Joystick
+            'blink_duration_joystickmin_sec' : 0.035, # caused by Joystick trigger
+            'blink_duration_joystickmax_sec' : 0.06, # caused by Joystick trigger
             
             'pupil_auto_expand_sec' : 12.0,
             'pupil_auto_contract_sec' : 4.0,
@@ -184,7 +184,7 @@ class gecko_eye_t(object):
             'hold_duration_min_sec' : 2.1, # original: 0.1
             'hold_duration_max_sec' : 4.0, # original: 1.1
 
-            'move_duration_joystick_sec' : 0.10, # 0.12
+            'move_duration_joystick_sec' : 0.80, # 0.12 # caused by Joystick position
             'emotion_interval_sec' : 8.0, # Interval between next emotion
 
             #
