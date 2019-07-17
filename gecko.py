@@ -62,6 +62,7 @@ class gecko_eye_t(object):
         # Periodically check for new devices connected
         self.keyboard_last_retry = 0
         self.joystick_last_retry = 0
+        self.test_joystick_cnt = 0
 
         # Other timer initialization
         self.nxt_emotion_sec = 0
@@ -73,7 +74,10 @@ class gecko_eye_t(object):
         self.event_doBlink = False
         
         self.parse_args()
-        eye_contexts = ['cyclops','hack','dragon']        
+        eye_contexts = ['cyclops','hack','dragon']
+        self.eye_cache = defaultdict(dict)
+        self.init_display()
+        
         self.init(eye_contexts)
 
     def parse_args(self):
@@ -82,6 +86,8 @@ class gecko_eye_t(object):
                                  action='store_true',help='Demo mode (various eye animations)')
         self.parser.add_argument('--playa',default=self.cfg_db['playa'],
                                  action='store_true',help='Playa mode (playa eye animations)')
+        self.parser.add_argument('--screenshots',default=self.cfg_db['screenshots'],
+                                 action='store_true',help='Enumerate graphics for screenshots')
         self.parser.add_argument('--joystick_test',default=self.cfg_db['joystick_test'],
                                  action='store_true',help='Inject joystick test messages')
         self.parser.add_argument('--timeout_secs',default=self.cfg_db['timeout_secs'],
@@ -125,7 +131,8 @@ class gecko_eye_t(object):
         self.cfg_db['eye_orientation'] = args.eye_orientation
         self.cfg_db['demo'] = args.demo
         self.cfg_db['playa'] = args.playa
-
+        self.cfg_db['screenshots'] = args.screenshots
+        
         assert (not (self.cfg_db['demo'] and self.cfg_db['playa']))
         
         self.cfg_db['joystick_test'] = args.joystick_test
@@ -138,6 +145,7 @@ class gecko_eye_t(object):
             'demo_eye_tenure_secs' : 3,
             'playa' : False, # Playa mode operation
             'joystick_test' : False, # No test messages from joystick
+            'screenshots' : False, # Enumerates graphics and take screenshots
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
             'JOYSTICK_X_IN': -1,    # Analog input for eye horiz pos (-1 = auto)
@@ -325,10 +333,6 @@ class gecko_eye_t(object):
         return eye_context
         
     def init(self,eye_contexts):
-        self.test_joystick_cnt = 0
-        self.eye_cache = defaultdict(dict)
-        self.init_display()
-
         # Eye context dependent
         if False:
             self.init_svg()
@@ -1215,7 +1219,55 @@ class gecko_eye_t(object):
         if self.debug:
             print ('joystick_polls: {}'.format(self.joystick_polls))
 
+    def screenshots(self):
+	self.DISPLAY.loop_running()        
+	# Draw eye
+        for fname_sclera in self.hack_scleras:
+            for fname_iris in self.hack_iris:
+                # create a special eye context
+                screenshot_context = 'screenshot'
+                self.cfg_db[screenshot_context] = {
+		    'eye.shape': 'graphics/cyclops-eye.svg',
+		    'iris.art': fname_iris,
+		    'lid.art': 'graphics/lid.png',
+		    'sclera.art': fname_sclera
+		}
+                self.init(['screenshot'])
+                self.EYE_SELECT = self.switch_eye_context(screenshot_context)
+                
+                for i in range(2):
+                    self.frame(1.0)
+
+                # Sclera
+                re_fname = re.compile(r'^(.*)\.(\S+)$',re.IGNORECASE)
+                fname = fname_sclera.split('/')[-1]
+                print ('fname_sclera: {}'.format(fname))
+                m = re_fname.match(fname)
+                assert (m)
+                print ('m: {}'.format(m.groups()))
+                fname_base_sclera= m.group(1)
+
+                # Iris
+                fname = fname_iris.split('/')[-1]
+                print ('fname_iris: {}'.format(fname))
+                m = re_fname.match(fname_iris.split('/')[-1])
+                assert (m)
+                print ('m: {}'.format(m.groups()))                
+                fname_base_iris = m.group(1)
+                
+                fname_screenshot = '{}_{}.jpg'.format(fname_base_sclera,fname_base_iris)
+                fname_screenshot.replace(' ','_')
+                print ('fname_screenshot: {}'.format(fname_screenshot))
+                pi3d.screenshot(fname_screenshot)
+                #time.sleep(1)
+
+    
     def run(self):
+        if self.cfg_db['screenshots']:
+            self.screenshots()
+            DISPLAY.destroy()
+            sys.exit(0)
+        
         do_exit = False
         if self.cfg_db['demo']:
             self.cfg_db['eye_orientation'] = random.choice(['left','right'])
