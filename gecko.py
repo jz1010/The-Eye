@@ -16,6 +16,7 @@ from joystick import joystick_t
 from keyboard import keyboard_t
 from debug import leak_check
 from wearables import wearables_client_t, wearables_server_t
+from openpyxl import load_workbook
 
 # These need to be globals in order to avoid a memory leak
 DISPLAY = pi3d.Display.create(samples=4)
@@ -74,40 +75,139 @@ class gecko_eye_t(object):
         self.event_doBlink = False
         
         self.parse_args()
+        self.load_constraints()
+        
         eye_contexts = ['cyclops','hack','dragon']
         self.eye_cache = defaultdict(dict)
         self.init_display()
         
         self.init(eye_contexts)
 
+    def load_constraints(self):
+        if self.cfg_db['eye_constraints'] is None:
+            return
+
+        print ('loading eye constraints from: {}'.format(self.cfg_db['eye_constraints']))
+        wb = load_workbook(filename = self.cfg_db['eye_constraints'])
+        wb_sheet_names = wb.get_sheet_names()
+        print ('# {}'.format(wb_sheet_names))
+
+        fnames_sclera = [None]
+        fnames_iris = [None]
+        dir_graphics = '.'
+        
+        for sheet_name in wb_sheet_names:
+            if sheet_name in ['eye']:
+                sheet = wb[sheet_name]
+                self.eye_constraints = {}
+                
+                # Row 0 contains schlera file names
+                # Col 0 contains iris file names
+                # Intersections (row,col) contain boolean if combination is allowed
+                for row_idx,row in enumerate(sheet.iter_rows(min_row=0)):
+                    rowlen = len(row)
+                    #print (rowlen)
+                    #raise
+                    if row_idx == 0:
+                        dir_graphics = row[0].value
+                        
+                        fnames_sclera += ['{}/{}'.format(dir_graphics,
+                                                         row[col_idx].value) \
+                                          for col_idx in range(1,rowlen)]
+
+                        continue
+                        
+                    for col_idx in range(0,rowlen):
+                        cell = row[col_idx]
+                        val = cell.value
+
+                        if col_idx == 0:
+                            fnames_iris.append('{}/{}'.format(dir_graphics,val))
+                            continue
+                            
+                        if type(val) == str:
+                            val = val.upper()
+
+                        print ('row_idx: {} col_idx: {}'.format(row_idx,col_idx))
+                        key_sclera = fnames_sclera[col_idx]
+                        key_iris = fnames_iris[row_idx]
+                        key = (key_sclera,key_iris)
+                        print ('key: {}'.format(key))
+                        if val in ['Y','X']: # combination permitted
+                            self.eye_constraints[key] = True
+                        else:
+                            self.eye_constraints[key] = False
+
+            elif sheet_name in ['wearables']:
+                pass
+            else:
+                print ('Ignoring sheet name: {}'.format(sheet_name))
+
+        print ('fnames_sclera: {}'.format(fnames_sclera))
+        print ('fnames_iris: {}'.format(fnames_iris))
+        dir_graphics = 'hack_graphics'
+        self.hack_scleras = fnames_sclera[1:]
+        self.hack_iris = fnames_iris[1:]
+        
+        #print ('eye_constraints: {}'.format(self.eye_constraints))
+        self.fname_sclera = None
+        self.fname_iris = None
+        
     def parse_args(self):
         self.parser = argparse.ArgumentParser(description="Parse arguments")
-        self.parser.add_argument('--demo',default=self.cfg_db['demo'],
-                                 action='store_true',help='Demo mode (various eye animations)')
-        self.parser.add_argument('--playa',default=self.cfg_db['playa'],
-                                 action='store_true',help='Playa mode (playa eye animations)')
-        self.parser.add_argument('--screenshots',default=self.cfg_db['screenshots'],
-                                 action='store_true',help='Enumerate graphics for screenshots')
-        self.parser.add_argument('--joystick_test',default=self.cfg_db['joystick_test'],
-                                 action='store_true',help='Inject joystick test messages')
-        self.parser.add_argument('--timeout_secs',default=self.cfg_db['timeout_secs'],
-                                 action='store',type=int,help='Exit application after N seconds')
-        
-        self.parser.add_argument('--autoblink',default=self.cfg_db['AUTOBLINK'],
-                                 action='store',help='Autoblink of eyelid')
-        self.parser.add_argument('--eye_orientation',default=self.cfg_db['eye_orientation'],
-                                 action='store',help='Eye orientation: right (default), left')
-        self.parser.add_argument('--eye_select',default=self.EYE_SELECT,
-                                 action='store',help='Eye profile selection')
-        self.parser.add_argument('--eye_shape',default=self.cfg_db[self.EYE_SELECT]['eye.shape'],
-                                 action='store',help='Eye shape art file (.svg)')
-        self.parser.add_argument('--iris_art',default=self.cfg_db[self.EYE_SELECT]['iris.art'],        
-                                 action='store',help='Iris art file (.jpg)')
-        self.parser.add_argument('--lid_art',default=self.cfg_db[self.EYE_SELECT]['lid.art'],        
-                                 action='store',help='Lid art file (.png)')
-        self.parser.add_argument('--sclera_art',default=self.cfg_db[self.EYE_SELECT]['sclera.art'],        
-                                 action='store',help='Sclera art file (.png)')
-
+        self.parser.add_argument('--demo',
+                                 default=self.cfg_db['demo'],
+                                 action='store_true',
+                                 help='Demo mode (various eye animations)')
+        self.parser.add_argument('--playa',
+                                 default=self.cfg_db['playa'],
+                                 action='store_true',
+                                 help='Playa mode (playa eye animations)')
+        self.parser.add_argument('--screenshots',
+                                 default=self.cfg_db['screenshots'],
+                                 action='store_true',
+                                 help='Enumerate graphics for screenshots')
+        self.parser.add_argument('--joystick_test',
+                                 default=self.cfg_db['joystick_test'],
+                                 action='store_true',
+                                 help='Inject joystick test messages')
+        self.parser.add_argument('--timeout_secs',
+                                 default=self.cfg_db['timeout_secs'],
+                                 action='store',type=int,
+                                 help='Exit application after N seconds')
+        self.parser.add_argument('--autoblink',
+                                 default=self.cfg_db['AUTOBLINK'],
+                                 action='store',
+                                 help='Autoblink of eyelid')
+        self.parser.add_argument('--eye_orientation',
+                                 default=self.cfg_db['eye_orientation'],
+                                 action='store',
+                                 help='Eye orientation: right (default), left')
+        self.parser.add_argument('--eye_select',
+                                 default=self.EYE_SELECT,
+                                 action='store',
+                                 help='Eye profile selection')
+        self.parser.add_argument('--eye_shape',
+                                 default=self.cfg_db[self.EYE_SELECT]['eye.shape'],
+                                 action='store',
+                                 help='Eye shape art file (.svg)')
+        self.parser.add_argument('--iris_art',
+                                 default=self.cfg_db[self.EYE_SELECT]['iris.art'],        
+                                 action='store',
+                                 help='Iris art file (.jpg)')
+        self.parser.add_argument('--lid_art',
+                                 default=self.cfg_db[self.EYE_SELECT]['lid.art'],        
+                                 action='store',
+                                 help='Lid art file (.png)')
+        self.parser.add_argument('--sclera_art',
+                                 default=self.cfg_db[self.EYE_SELECT]['sclera.art'],        
+                                 action='store',
+                                 help='Sclera art file (.png)')
+        self.parser.add_argument('--eye_constraints',
+                                 default=self.cfg_db['eye_constraints'],
+                                 action='store',
+                                 help='Eye art combination constraints')
+                           
         # Parse the arguments
         args = self.parser.parse_args()
 
@@ -132,7 +232,8 @@ class gecko_eye_t(object):
         self.cfg_db['demo'] = args.demo
         self.cfg_db['playa'] = args.playa
         self.cfg_db['screenshots'] = args.screenshots
-        
+        self.cfg_db['eye_constraints'] = args.eye_constraints
+                           
         assert (not (self.cfg_db['demo'] and self.cfg_db['playa']))
         
         self.cfg_db['joystick_test'] = args.joystick_test
@@ -245,7 +346,8 @@ class gecko_eye_t(object):
                 'sclera.art': 'hack_graphics/Circuit sclera_00000.jpg',
 #		'sclera.art': 'hack_graphics/Organic eye_01081.jpg',                
 	    },
-
+            'eye_constraints' : None,
+            
             #
             # Network related
             #
@@ -497,14 +599,36 @@ class gecko_eye_t(object):
         self.light = light
                 
 
+    def constrained_random_eye(self):
+        done = False
+        while not done:
+            fname_iris = random.choice(self.hack_iris)
+            fname_sclera = random.choice(self.hack_scleras)
+            if fname_iris == self.fname_iris and \
+               fname_sclera == self.fname_sclera:
+                continue
+            
+            key = (fname_sclera,fname_iris)
+            done = self.eye_constraints[key]
+
+        self.fname_sclera = fname_sclera
+        self.fname_iris = fname_iris
+
+        print ('random_eye: {}, {}'.format(self.fname_sclera,
+                                           self.fname_iris))
+        return (fname_sclera,fname_iris)
+    
     def load_textures(self,eye_context=None):
         # Load texture maps --------------------------------------------------------
 
         defer_loading = False # Pre-cache textures at setup
         if eye_context in ['hack']:
-            fname_iris = random.choice(self.hack_iris)
+            (fname_sclera,fname_iris) = self.constrained_random_eye()
         else:
             fname_iris = self.cfg_db[eye_context]['iris.art']
+            fname_sclera = self.cfg_db[eye_context]['sclera.art']
+
+        print ('fname_sclera: {}'.format(fname_sclera))            
         print ('fname_iris: {}'.format(fname_iris))
         self.irisMap = pi3d.Texture(fname_iris,
                                     mipmap=False, # True, doesn't look as good
@@ -512,11 +636,6 @@ class gecko_eye_t(object):
                                     filter=pi3d.GL_LINEAR
 #                                   filter=pi3d.GL_NEAREST  # Doesn't look as good
         )
-        if eye_context in ['hack']:
-            fname_sclera = random.choice(self.hack_scleras)
-        else:
-            fname_sclera = self.cfg_db[eye_context]['sclera.art']
-        print ('fname_sclera: {}'.format(fname_sclera))            
         self.scleraMap = pi3d.Texture(fname_sclera,
                                       mipmap=False, # True, doesn't look as good
                                       defer=defer_loading,                                      
