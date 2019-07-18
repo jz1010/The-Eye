@@ -609,13 +609,14 @@ class gecko_eye_t(object):
                 continue
             
             key = (fname_sclera,fname_iris)
+            if self.cfg_db['eye_constraints'] is None:
+                done = True
+                continue
+            
             done = self.eye_constraints[key]
 
-        self.fname_sclera = fname_sclera
-        self.fname_iris = fname_iris
-
-        print ('random_eye: {}, {}'.format(self.fname_sclera,
-                                           self.fname_iris))
+        print ('random_eye: {}, {}'.format(fname_sclera,
+                                           fname_iris))
         return (fname_sclera,fname_iris)
     
     def load_textures(self,eye_context=None):
@@ -623,20 +624,20 @@ class gecko_eye_t(object):
 
         defer_loading = False # Pre-cache textures at setup
         if eye_context in ['hack']:
-            (fname_sclera,fname_iris) = self.constrained_random_eye()
+            (self.fname_sclera,self.fname_iris) = self.constrained_random_eye()
         else:
-            fname_iris = self.cfg_db[eye_context]['iris.art']
-            fname_sclera = self.cfg_db[eye_context]['sclera.art']
+            self.fname_iris = self.cfg_db[eye_context]['iris.art']
+            self.fname_sclera = self.cfg_db[eye_context]['sclera.art']
 
-        print ('fname_sclera: {}'.format(fname_sclera))            
-        print ('fname_iris: {}'.format(fname_iris))
-        self.irisMap = pi3d.Texture(fname_iris,
+        print ('fname_sclera: {}'.format(self.fname_sclera))            
+        print ('fname_iris: {}'.format(self.fname_iris))
+        self.irisMap = pi3d.Texture(self.fname_iris,
                                     mipmap=False, # True, doesn't look as good
                                     defer=defer_loading,
                                     filter=pi3d.GL_LINEAR
 #                                   filter=pi3d.GL_NEAREST  # Doesn't look as good
         )
-        self.scleraMap = pi3d.Texture(fname_sclera,
+        self.scleraMap = pi3d.Texture(self.fname_sclera,
                                       mipmap=False, # True, doesn't look as good
                                       defer=defer_loading,                                      
                                       filter=pi3d.GL_LINEAR,
