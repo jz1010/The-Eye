@@ -23,11 +23,17 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
     # Use case production
     export TIMEOUT_SECS
     export SB=${DVROOT}
+
+    # Use case demo
     ${DVROOT}/utils/demo
 
+    # Use case constrained demo
+    ${DVROOT}/utils/demo --eye_constraints "hack_graphics/hack_constraints.xlsx"
+    
     # Use case development
     export EYE_SELECT="hack"
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS}
+
 #    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
 fi
 
