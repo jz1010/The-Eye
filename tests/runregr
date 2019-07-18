@@ -14,7 +14,7 @@ else
 fi
 
 if [ ${TEST_MODE} == "nightly" ]; then
-    TIMEOUT_SECS=3600
+    TIMEOUT_SECS=600
 elif [ ${TEST_MODE} == "smoke" ]; then
     TIMEOUT_SECS=60
 fi    
@@ -33,6 +33,10 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
     # Use case development
     export EYE_SELECT="hack"
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS}
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --joystick_test 
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_orientation right 
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_orientation left 
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --screenshots 
 
 #    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
 fi
