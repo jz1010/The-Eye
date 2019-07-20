@@ -377,7 +377,13 @@ class gecko_eye_t(object):
             'hack_graphics/Circuit sclera_00012.jpg',
             'hack_graphics/Circuit sclera_00013.jpg',
             'hack_graphics/Circuit sclera_00014.jpg',
-            'hack_graphics/Circuit sclera_00015.jpg',            
+            'hack_graphics/Circuit sclera_00015.jpg',
+            'hack_graphics/gecko spiral eyes_01281.jpg',
+            'hack_graphics/gecko spiral eyes_01282.jpg',
+            'hack_graphics/gecko spiral eyes_01283.jpg',
+            'hack_graphics/gecko spiral eyes_01284.jpg',
+            'hack_graphics/gecko spiral eyes_01285.jpg',
+            'hack_graphics/gecko spiral eyes_01286.jpg',
         ]
         self.hack_iris = [
 	    'hack_graphics/Metal Iris_00145.jpg',
@@ -388,9 +394,23 @@ class gecko_eye_t(object):
 	    'hack_graphics/Metal Iris_00150.jpg',
 	    'hack_graphics/Metal Iris_00151.jpg',
 	    'hack_graphics/Metal Iris_00152.jpg',
-	    'hack_graphics/Metal Iris_00153.jpg',            
+	    'hack_graphics/Metal Iris_00153.jpg',
+            'hack_graphics/gecko spiral eyes_01281.jpg',
+            'hack_graphics/gecko spiral eyes_01282.jpg',
+            'hack_graphics/gecko spiral eyes_01283.jpg',
+            'hack_graphics/gecko spiral eyes_01284.jpg',
+            'hack_graphics/gecko spiral eyes_01285.jpg',
+            'hack_graphics/gecko spiral eyes_01286.jpg',
         ]
-        
+
+#        self.hack_iris = [
+#            'hack_graphics/gecko spiral eyes_01281.jpg',
+#            'hack_graphics/gecko spiral eyes_01282.jpg',
+#            'hack_graphics/gecko spiral eyes_01283.jpg',
+#            'hack_graphics/gecko spiral eyes_01284.jpg',
+#            'hack_graphics/gecko spiral eyes_01285.jpg',
+#            'hack_graphics/gecko spiral eyes_01286.jpg',
+#        ]        
     def switch_eye_context(self,eye_context):
         if eye_context is None:
             return
