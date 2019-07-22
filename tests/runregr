@@ -35,8 +35,12 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS}
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --joystick_test 
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_orientation right 
-    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_orientation left 
-    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --screenshots 
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_orientation left
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --autoblink 0
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_constraints hack_graphics/hack_constraints.xlsx
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --demo
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --playa
+    ${DVROOT}/run --screenshots 
 
 #    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
 fi
