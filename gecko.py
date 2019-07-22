@@ -1253,7 +1253,10 @@ class gecko_eye_t(object):
     def random_next_eye(self):
         next_eye = self.EYE_SELECT
         while next_eye is self.EYE_SELECT:
-            next_eye = random.choice(['cyclops','dragon','hack'])
+            if self.cfg_db['playa']:
+                next_eye = 'hack'
+            else:
+                next_eye = random.choice(['cyclops','dragon','hack'])
 
         return next_eye
         
