@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from evdev import InputDevice, categorize, ecodes
+import time
 
 class joystick_t(object):
     def __init__(self,joystick_dev='/dev/input/event1',debug=False):
@@ -36,6 +37,24 @@ class joystick_t(object):
             298: {'button': '11'},
             299: {'button': '12'}
         }
+        
+        total_range = 1024.0
+        min_delta = total_range / 8.0
+        self.range_hi = total_range
+        self.range_lo = 0.0
+        self.t_long_lo = total_range * 0.5 / 4.0
+        self.t_long_hi = total_range * 3.5 / 4.0
+        self.t_short_mid_lo = (total_range * 1.0 / 2.0) - min_delta
+        self.t_short_mid_hi = (total_range * 1.0 / 2.0) + min_delta
+        self.t_short_min = self.t_long_lo
+        self.t_short_max = self.t_long_hi
+        print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
+            self.t_long_lo,
+            self.t_short_mid_lo,
+            self.t_short_mid_hi,            
+            self.t_long_hi))
+        self.sample_interval = 0.10 # secs
+        self.time_last_sample = 0
 
     def info(self):
         print ('joystick: {}'.format(self.joystick))
@@ -45,12 +64,16 @@ class joystick_t(object):
 
     def get_status(self):
         return (self.joystick is not None)
+
+    def opt_eye_event_queue(self,events):
         
+        return events
+
     def sample_nonblocking(self):
         gecko_events = []
         if self.joystick is None:
             return gecko_events
-        
+
         sample = False
         events = []
         while True:
@@ -68,14 +91,16 @@ class joystick_t(object):
             if event.type in [ecodes.EV_KEY]:
                 if event.code not in self.buttons:
                     continue # unhandled event
-                
+
                 button_name = self.buttons[event.code]['button']
                 button_val = event.value
                 #print ('button: {} state: {}'.format(button_name,button_val))
                 if button_name in ['trigger']:
                     gecko_events.append('blink')
                 elif button_name in ['2']:
-                    gecko_events.append('eye_center')
+                    #event = ('eye_center','fast')
+                    event = ('eye_center','slow')                    
+                    gecko_events.append(event)
                 elif button_name in ['9']:
                     gecko_events.append('eye_context_9')                    
                 elif button_name in ['11']:
@@ -85,28 +110,70 @@ class joystick_t(object):
                 else:
                     pass
             elif event.type in [ecodes.EV_ABS]: # stick handle
+                time_now =  time.time()
+                if time_now < self.time_last_sample + self.sample_interval:
+                    pass
+                    #continue
+
+                self.time_last_sample = time_now
+                
                 eye_direction = None
-                total_range = 1024
-                t_lo = total_range / 4
-                t_hi = total_range / 4 * 3
+                eye_movement_rate = None
                 if self.debug:
                     #print ('analog value: {}'.format(event.value))
                     pass
-                    
                 if event.code in [0]: # stick left/right
-                    #print ('ABS_0: {}'.format(event))
-                    if event.value >= 0 and event.value < t_lo: # left
+                    print ('Stick left/right, ABS_0: {}'.format(event))
+                    if event.value < self.t_short_mid_lo and event.value > self.t_short_min:
+                        # soft left
                         eye_direction = 'eye_left'
-                    elif event.value >= t_hi and event.value <= total_range: # right
+                        eye_movement_rate = 'slow'
+                    elif event.value <= self.t_long_lo and event.value >= self.range_lo:
+                        # hard left
+                        eye_direction = 'eye_left'
+                        eye_movement_rate = 'fast'
+                    elif event.value >= self.t_short_mid_hi and event.value < self.t_short_max:
+                        # soft right
                         eye_direction = 'eye_right'
-                    #gecko_events.append(eye_direction)
+                        eye_movement_rate = 'slow'                        
+                    elif event.value >= self.t_long_hi and event.value <= self.range_hi:
+                        # hard right
+                        eye_direction = 'eye_right'
+                        eye_movement_rate = 'fast'
+                    else:
+                        print ('No decode left/right for val: {}'.format(event.value))
+                        print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
+                            self.t_long_lo,
+                            self.t_short_mid_lo,
+                            self.t_short_mid_hi,            
+                            self.t_long_hi))
+                        
+                        
                 elif event.code in [1]: # stick forward/back
-                    #print ('ABS_1: {}'.format(event))
-                    if event.value >= 0 and event.value < t_lo: # forward
+                    print ('Stick forward/back ABS_1: {}'.format(event))
+                    if event.value < self.t_short_mid_lo and event.value > self.t_short_min:
                         eye_direction = 'eye_up'
-                    elif event.value >= t_hi and event.value <= total_range: # back
+                        eye_movement_rate = 'slow'
+                    elif event.value <= self.t_long_lo and event.value >= self.range_lo:
+                        # hard forward
+                        eye_direction = 'eye_up'
+                        eye_movement_rate = 'fast'
+                    elif event.value >= self.t_short_mid_hi and event.value < self.t_short_max:
+                        # soft back
                         eye_direction = 'eye_down'
-                    #gecko_events.append(eye_direction)                        
+                        eye_movement_rate = 'slow'
+                    elif event.value >= self.t_long_hi and event.value <= self.range_hi:
+                        # hard back
+                        eye_direction = 'eye_down'
+                        eye_movement_rate = 'fast'
+                    else:
+                        print ('No decode back/forward for val: {}'.format(event.value))
+                        print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
+                            self.t_long_lo,
+                            self.t_short_mid_lo,
+                            self.t_short_mid_hi,            
+                            self.t_long_hi))
+                        
                 elif event.code in [5]: # stick twist
                     #print ('ABS_5: {}'.format(event))                                  
                     pass
@@ -132,38 +199,66 @@ class joystick_t(object):
                     print ('Analog unhandled event: {}'.format(event))
 
                 # Refine eye position
+                print ('last_position: {} eye_position: {}'.format(self.eye_direction_last,
+                                                                   eye_direction))
                 if eye_direction is not None:
                     if self.eye_direction_last in ['eye_up']:
-                        if eye_direction in ['eye_right']:
+                        if eye_direction in ['eye_right'] and \
+                           eye_movement_rate in ['fast']:
                             eye_direction = 'eye_northeast'
-                        elif eye_direction in ['eye_left']:
+                        elif eye_direction in ['eye_left'] and \
+                           eye_movement_rate in ['fast']:
                             eye_direction = 'eye_northwest'
                     elif self.eye_direction_last in ['eye_down']:
-                        if eye_direction in ['eye_right']:
+                        if eye_direction in ['eye_right'] and \
+                           eye_movement_rate in ['fast']:
                             eye_direction = 'eye_southeast'
                         elif eye_direction in ['eye_left']:
                             eye_direction = 'eye_southwest'
                     elif self.eye_direction_last in ['eye_left']:
-                        if eye_direction in ['eye_up']:
+                        if eye_direction in ['eye_up'] and \
+                           eye_movement_rate in ['fast']:
                             eye_direction = 'eye_northwest'
                         elif eye_direction in ['eye_down']:
                             eye_direction = 'eye_southwest'
                     elif self.eye_direction_last in ['eye_right']:
-                        if eye_direction in ['eye_up']:
+                        if eye_direction in ['eye_up'] and \
+                           eye_movement_rate in ['fast']:                           
                             eye_direction = 'eye_northeast'
-                        elif eye_direction in ['eye_down']:
+                        elif eye_direction in ['eye_down'] and \
+                             eye_movement_rate in ['fast']:                             
                             eye_direction = 'eye_southeast'
-#                    elif self.eye_direction_last in ['eye_northeast']:
-#                        eye_direction = 'eye_northeast'
+                    elif self.eye_direction_last in ['eye_northeast']:
+                        if eye_direction in ['eye_up','eye_right']:
+                            eye_direction = 'eye_northeast'
+                    elif self.eye_direction_last in ['eye_northwest']:
+                        if eye_direction in ['eye_up','eye_left']:
+                            eye_direction = 'eye_northwest'
+                    elif self.eye_direction_last in ['eye_southwest']:
+                        if eye_direction in ['eye_down','eye_left']:
+                            eye_direction = 'eye_southwest'
+                    elif self.eye_direction_last in ['eye_southeast']:
+                        if eye_direction in ['eye_down','eye_right']:
+                            eye_direction = 'eye_southeast'
                     elif self.eye_direction_last is None:
                         pass
                     else:
                         pass
 
                     assert (eye_direction is not None)
-                    gecko_events.append(eye_direction)
+                    if eye_direction in ['eye_southeast',
+                                         'eye_southwest',
+                                         'eye_northeast',
+                                         'eye_northheast']:
+                        pass
+                        #continue
+
+                    # Add event
+                    event = (eye_direction,eye_movement_rate)
+                    gecko_events.append(event)
+
+                    # Prepare for next event
                     self.eye_direction_last = eye_direction
-                    
             elif event.type in [0]: # UNKNOWN
                 pass
             elif event.type in [4]: # UNKNOWN - maybe relates to button press
@@ -171,6 +266,8 @@ class joystick_t(object):
             else:
                 print ('Unhandled event type: {}'.format(event.type))
 
+        gecko_events = self.opt_eye_event_queue(gecko_events)
+        
         return gecko_events
 
     def shutdown(self):
