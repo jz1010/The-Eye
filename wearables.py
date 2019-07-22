@@ -22,9 +22,13 @@ class wearables_server_t(object):
         mreq = struct.pack("4sl", socket.inet_aton(self.mcaddr), socket.INADDR_ANY)
         self.s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         
-    def send_msg(self,msg_effect):
+    def send_msg(self,msg):
         MESSAGE = 0xDF0002
         elapsed = beat = hue_med = hue_dev = 0
+        if type(msg) is tuple:
+            msg_effect = '_'.join(['{}'.format(elem) for elem in msg])
+        else:
+            msg_effect = msg
         print "TX   %-16s elapsed: %04d beat: %04d hue_med:%03d hue_dev:%03d" % (msg_effect, elapsed, beat, hue_med, hue_dev)
         frame = struct.pack("!I12s16sIIBB", MESSAGE, '', msg_effect, elapsed, beat, hue_med, hue_dev)
         self.s.sendto(frame, (self.mcaddr, self.port))
