@@ -1328,7 +1328,7 @@ class gecko_eye_t(object):
             if self.joystick is None:
                 self.handle_events(gecko_events)
             else:
-                print ('Joystick master dropping events')
+                print ('Joystick master ignoring loopback events')
             
     def create_joystick_test_msg(self):
         #eye_event = random.choice(self.test_eye_events)
