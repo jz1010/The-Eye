@@ -123,7 +123,8 @@ class joystick_t(object):
                     #print ('analog value: {}'.format(event.value))
                     pass
                 if event.code in [0]: # stick left/right
-                    print ('Stick left/right, ABS_0: {}'.format(event))
+                    if self.debug:
+                        print ('Stick left/right, ABS_0: {}'.format(event))
                     if event.value < self.t_short_mid_lo and event.value > self.t_short_min:
                         # soft left
                         eye_direction = 'eye_left'
@@ -141,16 +142,18 @@ class joystick_t(object):
                         eye_direction = 'eye_right'
                         eye_movement_rate = 'fast'
                     else:
-                        print ('No decode left/right for val: {}'.format(event.value))
-                        print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
-                            self.t_long_lo,
-                            self.t_short_mid_lo,
-                            self.t_short_mid_hi,            
-                            self.t_long_hi))
+                        if self.debug:
+                            print ('No decode left/right for val: {}'.format(event.value))
+                            print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
+                                self.t_long_lo,
+                                self.t_short_mid_lo,
+                                self.t_short_mid_hi,            
+                                self.t_long_hi))
                         
                         
                 elif event.code in [1]: # stick forward/back
-                    print ('Stick forward/back ABS_1: {}'.format(event))
+                    if self.debug:
+                        print ('Stick forward/back ABS_1: {}'.format(event))
                     if event.value < self.t_short_mid_lo and event.value > self.t_short_min:
                         eye_direction = 'eye_up'
                         eye_movement_rate = 'slow'
@@ -167,12 +170,13 @@ class joystick_t(object):
                         eye_direction = 'eye_down'
                         eye_movement_rate = 'fast'
                     else:
-                        print ('No decode back/forward for val: {}'.format(event.value))
-                        print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
-                            self.t_long_lo,
-                            self.t_short_mid_lo,
-                            self.t_short_mid_hi,            
-                            self.t_long_hi))
+                        if self.debug:
+                            print ('No decode back/forward for val: {}'.format(event.value))
+                            print ('t_long_lo: {} t_short_mid_lo: {} t_short_mid_hi: {} t_long_hi: {}'.format(
+                                self.t_long_lo,
+                                self.t_short_mid_lo,
+                                self.t_short_mid_hi,            
+                                self.t_long_hi))
                         
                 elif event.code in [5]: # stick twist
                     #print ('ABS_5: {}'.format(event))                                  
@@ -199,8 +203,9 @@ class joystick_t(object):
                     print ('Analog unhandled event: {}'.format(event))
 
                 # Refine eye position
-                print ('last_position: {} eye_position: {}'.format(self.eye_direction_last,
-                                                                   eye_direction))
+                if self.debug:
+                    print ('last_position: {} eye_position: {}'.format(self.eye_direction_last,
+                                                                       eye_direction))
                 if eye_direction is not None:
                     if self.eye_direction_last in ['eye_up']:
                         if eye_direction in ['eye_right'] and \
