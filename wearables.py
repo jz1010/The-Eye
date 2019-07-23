@@ -26,7 +26,13 @@ class wearables_server_t(object):
         MESSAGE = 0xDF0002
         elapsed = beat = hue_med = hue_dev = 0
         if type(msg) is tuple:
-            msg_effect = '_'.join(['{}'.format(elem) for elem in msg])
+            msg_effect = msg[0]
+            if msg[1] in ['fast']:
+                elapsed = 2
+            elif msg[1] in ['slow']:
+                elapsed = 1
+            else:
+                pass
         else:
             msg_effect = msg
         print "TX   %-16s elapsed: %04d beat: %04d hue_med:%03d hue_dev:%03d" % (msg_effect, elapsed, beat, hue_med, hue_dev)
@@ -64,10 +70,20 @@ class wearables_client_t(object):
                  hue_dev) = \
                      struct.unpack("!I12s16sIIBB", data)
 
+                effect = effect.rstrip('\x00')
+                if elapsed in [2]:
+                    effect = (effect,'fast')
+                elif elapsed in [1]:
+                    effect = (effect,'slow')
+                elif elapsed in [0]:
+                    pass
+                else:
+                    print ('** Unexpected elapsed: {}'.format(elapsed))
+
                 msg_rec = {
     	            'msgcode' : msgcode,
                     'reserved' : reserved,
-                    'effect' : effect.rstrip('\x00'),
+                    'effect' : effect,
                     'elapsed' : elapsed,
                     'beat' : beat,
                     'hue_med' : hue_med,
@@ -75,11 +91,11 @@ class wearables_client_t(object):
                 }
                 if msgs is None:
                     msgs = []
+
                 msgs.append(msg_rec)
                 self.cnt_recv += 1
                 
-                if self.debug:
-    	            print "RX %s:%s   %-16s elapsed: %04d beat: %04d hue_med: %03d hue_dev: %03d" % (addr[0], addr[1], effect.rstrip('\0'), elapsed, beat, hue_med, hue_dev)
+    	        print "RX %s:%s   %-16s elapsed: %04d beat: %04d hue_med: %03d hue_dev: %03d" % (addr[0], addr[1], effect.rstrip('\0'), elapsed, beat, hue_med, hue_dev)
             except socket.error, e:
                 if e.args[0] == errno.EWOULDBLOCK:
                     break

@@ -2,6 +2,7 @@
 
 from evdev import InputDevice, categorize, ecodes
 import time
+import random
 
 class joystick_t(object):
     def __init__(self,joystick_dev='/dev/input/event1',debug=False):
@@ -53,7 +54,39 @@ class joystick_t(object):
             self.t_short_mid_lo,
             self.t_short_mid_hi,            
             self.t_long_hi))
-        self.sample_interval = 0.10 # secs
+
+        total_range = 255.0
+        min_delta = total_range / 8.0        
+        self.twist_range_hi = total_range
+        self.twist_range_lo = 0.0
+        self.twist_mid_lo = (total_range * 1.0 / 2.0) - min_delta
+        self.twist_mid_hi = (total_range * 1.0 / 2.0) + min_delta
+        print ('twist_range_lo: {} twist_mid_lo: {} twist_mid_hi: {} twist_range_hi: {}'.format(
+            self.twist_range_lo,
+            self.twist_mid_lo,
+            self.twist_mid_hi,            
+            self.twist_range_hi))
+        self.twist_pattern = [('eye_southwest','fast'),
+                              ('eye_down','fast'),
+                              ('eye_southeast','fast'),
+                              ('eye_right','fast'),                         
+                              ('eye_northeast','fast'),
+                              ('eye_up','fast'),                                                  
+                              ('eye_northwest','fast'),
+                              ('eye_left','fast'),
+        ]
+
+        self.center_pattern = [('eye_center','fast')]
+        self.twist_pattern_cclockwise = \
+            self.center_pattern + \
+            self.twist_pattern + \
+            self.center_pattern
+        self.twist_pattern_clockwise = \
+            self.center_pattern + \
+            self.twist_pattern[::-1] + \
+            self.center_pattern
+        
+        self.sample_interval = 2.00 # secs
         self.time_last_sample = 0
 
     def info(self):
@@ -94,13 +127,20 @@ class joystick_t(object):
 
                 button_name = self.buttons[event.code]['button']
                 button_val = event.value
-                #print ('button: {} state: {}'.format(button_name,button_val))
+                print ('button: {} state: {}'.format(button_name,button_val))
                 if button_name in ['trigger']:
                     gecko_events.append('blink')
                 elif button_name in ['2']:
                     #event = ('eye_center','fast')
                     event = ('eye_center','slow')                    
                     gecko_events.append(event)
+                elif button_name in ['3']:
+                    if button_val in [0]: # release
+                        continue
+                    crazy_pattern = self.twist_pattern
+                    random.shuffle(crazy_pattern)                    
+                    crazy_pattern += self.center_pattern
+                    gecko_events += crazy_pattern
                 elif button_name in ['9']:
                     gecko_events.append('eye_context_9')                    
                 elif button_name in ['11']:
@@ -110,13 +150,6 @@ class joystick_t(object):
                 else:
                     pass
             elif event.type in [ecodes.EV_ABS]: # stick handle
-                time_now =  time.time()
-                if time_now < self.time_last_sample + self.sample_interval:
-                    pass
-                    #continue
-
-                self.time_last_sample = time_now
-                
                 eye_direction = None
                 eye_movement_rate = None
                 if self.debug:
@@ -179,8 +212,27 @@ class joystick_t(object):
                                 self.t_long_hi))
                         
                 elif event.code in [5]: # stick twist
-                    #print ('ABS_5: {}'.format(event))                                  
-                    pass
+                    print ('ABS_5: {}'.format(event.value))
+                    if event.value >= self.twist_range_lo and \
+                       event.value <= self.twist_mid_lo:
+                        twist_pattern = self.twist_pattern_cclockwise
+                    elif event.value <= self.twist_range_hi and \
+                         event.value >= self.twist_mid_hi:
+                        twist_pattern = self.twist_pattern_clockwise
+                    else: # Outside ranges
+                        twist_pattern = None
+
+                    if twist_pattern is not None:
+                        # Time-based sampling for twist control
+                        time_now =  time.time()
+                        if time_now < self.time_last_sample + self.sample_interval:
+                            continue
+
+                        self.time_last_sample = time_now
+                        
+                        print ('twist_pattern: {}'.format(twist_pattern))
+                        gecko_events += twist_pattern
+                    
                 elif event.code in [17]: # Hat forward/back
                     if event.value in [-1]: # hat forward
                         gecko_events.append('pupil_widen')

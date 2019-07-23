@@ -935,6 +935,7 @@ class gecko_eye_t(object):
         self.lowerEyelid.draw()
 
     def check_same_event(self,prev_event,event):
+        prev_event_opt = None
         event_opt = None
         if type(event) is tuple and type(prev_event) is tuple:
             if event == prev_event:
@@ -946,30 +947,35 @@ class gecko_eye_t(object):
                 prev_eye_movement_rate = prev_event[1]
             
                 if eye_look_direction == prev_eye_look_direction:
-                    if 'fast' in [eye_movement_rate,prev_eye_movement_rate]:
-                        event_opt = (prev_eye_look_direction,'fast')
-                        if event_opt == prev_event:
-                            event_opt = None
-                        
+                    assert('fast' in [eye_movement_rate,prev_eye_movement_rate])
+                    prev_event_opt = None
+                    event_opt = (eye_look_direction,'fast')
                 else:
-                    event_opt = prev_event
+                    prev_event_opt = None
+                    event_opt = event
         else:
             if event != prev_event:
-                event_opt = prev_event
+                prev_event_opt = None
+                event_opt = event
 
         print ('event_opt: {}'.format(event_opt))
         
-        return event_opt
+        return (prev_event_opt,event_opt)
         
     def opt_eye_event_queue(self):
         print ('frame_event_queue: {}'.format(self.eye_event_queue))
         events_opt = []
         if len(self.eye_event_queue) > 1:
-            prev_event = self.eye_event_queue[0]
-            for event in self.eye_event_queue[1:]:
+            #prev_event = self.eye_event_queue[0]
+            prev_event = None
+            for event in self.eye_event_queue:
                 print ('comparing: {} with {}'.format(prev_event,event))
-                event_opt = self.check_same_event(prev_event,event)
-                if event_opt is not None and event_opt != prev_event:
+                (prev_event_opt,event_opt) = self.check_same_event(prev_event,event)
+                
+                if prev_event_opt is not None:
+                    events_opt.append(prev_event_opt)
+                    
+                if event_opt is not None:
                     events_opt.append(event_opt)
                     prev_event = event_opt
 
@@ -1385,7 +1391,7 @@ class gecko_eye_t(object):
         msgs = self.eye_client.get_msgs_nonblocking()
         if msgs is not None:
             gecko_events = [msg_rec['effect'] for msg_rec in msgs]
-            print ('eye_comm_events: {}'.format(gecko_events))
+            print ('eye_comm: recv {}'.format(gecko_events))
             #self.sanity_check_comm(gecko_events)
             self.eye_comm_msg_cnt += len(gecko_events)
             if self.joystick is None:
@@ -1416,7 +1422,8 @@ class gecko_eye_t(object):
                 if eye_event is eye_event_last and \
                    eye_event in ['blink']:
                     continue
-                
+
+                print ('eye_comm: send: {}'.format(eye_event))
                 self.eye_server.send_msg(eye_event)
                 eye_event_last = eye_event
             self.joystick_polls +=1
