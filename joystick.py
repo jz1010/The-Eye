@@ -9,6 +9,7 @@ class joystick_t(object):
         self.joystick_dev = joystick_dev
         self.debug = debug
         self.eye_direction_last = None
+        self.last_joystick_event_time = 0
         try:
             print ('Called init joystick for device: {}'.format(self.joystick_dev))
             self.joystick = InputDevice(self.joystick_dev)
@@ -324,9 +325,15 @@ class joystick_t(object):
                 print ('Unhandled event type: {}'.format(event.type))
 
         gecko_events = self.opt_eye_event_queue(gecko_events)
+
+        if len(gecko_events) > 0:
+            self.last_joystick_event_time = time.time()
         
         return gecko_events
 
+    def get_last_joystick_time(self):
+        return self.last_joystick_event_time
+    
     def shutdown(self):
         pass
         

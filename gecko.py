@@ -68,6 +68,7 @@ class gecko_eye_t(object):
         # Other timer initialization
         self.nxt_emotion_sec = 0
         self.last_v = 0.5
+        self.last_eye_comm_recv = 0
         self.event_holdDuration = None
         self.event_moveDuration = None
         self.event_overrideBlinkDurationClose = None
@@ -301,7 +302,9 @@ class gecko_eye_t(object):
             'hold_duration_max_sec' : 4.0, # original: 1.1
 
             'move_fast_duration_joystick_sec' : 0.80, # caused by Joystick position
-            'move_slow_duration_joystick_sec' : 2.00, # caused by Joystick position            
+            'move_slow_duration_joystick_sec' : 2.00, # caused by Joystick position
+
+            'auto_restart_interval_sec' : 4.00, # time after last joystick input auto-mode engages
             'emotion_interval_sec' : 8.0, # Interval between next emotion
 
             #
@@ -1098,22 +1101,33 @@ class gecko_eye_t(object):
                 self.move_startTime    = now_sec
                 self.isMoving     = True
                 #self.update_eye_events(reset=True)
-            elif False:
-                if dt >= self.holdDuration:
-                    if self.fsm_angry is None:
-                        self.destX = random.uniform(-30.0, 30.0)
-                        n = math.sqrt(900.0 - self.destX * self.destX)
-                        self.destY = random.uniform(-n, n)
-                        
-                    if self.event_moveDuration is not None:
-                        self.moveDuration = self.event_moveDuration
-                        self.event_moveDuration = None
-                    else:
-                        self.moveDuration = random.uniform(self.cfg_db['move_duration_min_sec'],
-                                                           self.cfg_db['move_duration_max_sec'])
-                    self.move_startTime    = now_sec
-                    self.isMoving     = True
+            else:
+                auto_eye = False
+                if self.joystick is None:
+                    if now_sec + self.cfg_db['auto_restart_interval_sec'] > \
+                       self.last_eye_comm_recv:
+                        auto_eye = True
+                else:
+                    if now_sec + self.cfg_db['auto_restart_interval_sec'] > \
+                       self.joystick.get_last_joystick_time():
+                        auto_eye = True
 
+                if auto_eye:
+                    if dt >= self.holdDuration:
+                        if self.fsm_angry is None:
+                            self.destX = random.uniform(-30.0, 30.0)
+                            n = math.sqrt(900.0 - self.destX * self.destX)
+                            self.destY = random.uniform(-n, n)
+                        
+                        if self.event_moveDuration is not None:
+                            self.moveDuration = self.event_moveDuration
+                            self.event_moveDuration = None
+                        else:
+                            self.moveDuration = random.uniform(
+                                self.cfg_db['move_duration_min_sec'],
+                                self.cfg_db['move_duration_max_sec'])
+                        self.move_startTime = now_sec
+                        self.isMoving = True
 
 	# Regenerate iris geometry only if size changed by >= 1/2 pixel
 	if abs(p - self.prevPupilScale) >= self.irisRegenThreshold:
@@ -1390,6 +1404,7 @@ class gecko_eye_t(object):
     def do_eye_comm(self):
         msgs = self.eye_client.get_msgs_nonblocking()
         if msgs is not None:
+            self.last_eye_comm_recv = time.time()
             gecko_events = [msg_rec['effect'] for msg_rec in msgs]
             print ('eye_comm: recv {}'.format(gecko_events))
             #self.sanity_check_comm(gecko_events)
