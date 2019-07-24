@@ -464,6 +464,9 @@ class gecko_eye_t(object):
             self.init_svg()
             self.load_textures(eye_context)
         else:
+            # Load animations
+            self.load_animations()
+                        
             # Build eyes
             for eye_context in eye_contexts:
                 self.init_svg(eye_context)
@@ -642,7 +645,24 @@ class gecko_eye_t(object):
         print ('random_eye: {}, {}'.format(fname_sclera,
                                            fname_iris))
         return (fname_sclera,fname_iris)
-    
+
+    def load_animations(self,defer_loading=False,eye_context=None):
+        dir = 'hack_graphics/animations/sclera'
+        from os import listdir
+        from os.path import isfile, join
+        flist = ['{}'.format(join(dir,f)) for f in listdir(dir) if isfile(join(dir, f))]
+
+        self.animation_frame = 0
+        self.animations = []
+        for fname in flist:
+            print ('anim fname: {}'.format(fname))
+            animation = pi3d.Texture(fname,
+                                     mipmap=False, # True, doesn't look as good
+                                     defer=defer_loading,                                      
+                                     filter=pi3d.GL_LINEAR,
+                                     blend=True)
+            self.animations.append(animation)
+        
     def load_textures(self,eye_context=None):
         # Load texture maps --------------------------------------------------------
 
@@ -932,7 +952,16 @@ class gecko_eye_t(object):
 	    self.eye.rotateToY(self.curX + convergence)
         else:
             raise
-            
+
+
+        if True:
+            anim_texture = self.animations[self.animation_frame]
+            self.animation_frame += 1
+            self.animation_frame %= len(self.animations)
+            self.eye.set_textures([anim_texture])
+            #self.eye.set_textures(self.animations)
+            #self.eye.set_offset(self.animation_frame)
+        
 	self.eye.draw()
         self.upperEyelid.draw()
         self.lowerEyelid.draw()
