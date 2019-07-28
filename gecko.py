@@ -651,10 +651,9 @@ class gecko_eye_t(object):
         from os import listdir
         from os.path import isfile, join
         flist = ['{}'.format(join(dir,f)) for f in listdir(dir) if isfile(join(dir, f))]
-
         self.animation_frame = 0
         self.animations = []
-        for fname in flist:
+        for fname in sorted(flist):
             print ('anim fname: {}'.format(fname))
             animation = pi3d.Texture(fname,
                                      mipmap=False, # True, doesn't look as good
