@@ -61,4 +61,4 @@ hdmi_cvt=640 480 60 1 0 0 0 # Works, good frame rate
 #hdmi_cvt=1920 1080 60 3 0 0 0 # Doesn't seem to work
 
 disable_splash=1
-gpu_mem=128
+gpu_mem=256
