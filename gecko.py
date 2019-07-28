@@ -1028,6 +1028,10 @@ class gecko_eye_t(object):
 	dt  = now_sec - self.move_startTime
 
 	self.frame_cnt += 1
+        if (self.frame_cnt % 1000) == 0:
+            frame_rate = float(self.frame_cnt) / float(now_sec - self.run_start_time)
+            print ('frame rate: {}'.format(frame_rate))
+            
 #	if(now_sec > beginningTime):
 #		print(frames/(now_sec-beginningTime))
 
@@ -1530,8 +1534,10 @@ class gecko_eye_t(object):
             self.cfg_db['eye_orientation'] = random.choice(['left','right'])
             print ('eye_orientation: {}'.format(self.cfg_db['eye_orientation']))
 
-        self.watchdog_sec = time.time()
-        self.last_eye_art_sec = time.time()
+        now_time = time.time()
+        self.run_start_time = now_time
+        self.watchdog_sec = now_time
+        self.last_eye_art_sec = now_time
         while not do_exit:
             if self.cfg_db['PUPIL_IN'] >= 0: # Pupil scale from sensor
                 raise
