@@ -465,7 +465,7 @@ class gecko_eye_t(object):
             self.load_textures(eye_context)
         else:
             # Load animations
-            self.load_animations()
+            #self.load_animations()
                         
             # Build eyes
             for eye_context in eye_contexts:
@@ -953,7 +953,7 @@ class gecko_eye_t(object):
             raise
 
 
-        if True:
+        if False:
             anim_texture = self.animations[self.animation_frame]
             self.animation_frame += 1
             self.animation_frame %= len(self.animations)
