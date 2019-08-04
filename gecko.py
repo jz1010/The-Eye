@@ -247,6 +247,7 @@ class gecko_eye_t(object):
             'demo_eye_tenure_secs' : 3,
             'playa' : False, # Playa mode operation
             'joystick_test' : False, # No test messages from joystick
+            'eye_queue_max' : 10, # maximum depth of eye event queue
             'screenshots' : False, # Enumerates graphics and take screenshots
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
@@ -1348,7 +1349,8 @@ class gecko_eye_t(object):
         return len(self.eye_event_queue) > 0
 
     def set_eye_event(self,eye_event):
-        self.eye_event_queue.append(eye_event)
+        if len(self.eye_event_queue) < self.cfg_db['eye_queue_max']:
+            self.eye_event_queue.append(eye_event)
         
     def handle_events(self,events):
         if len(events) == 0:
