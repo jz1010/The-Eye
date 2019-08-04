@@ -78,11 +78,11 @@ class gecko_eye_t(object):
         self.parse_args()
         self.load_constraints()
         
-        eye_contexts = ['cyclops','hack','dragon']
+        self.eye_contexts = ['cyclops','hack','dragon']
         self.eye_cache = defaultdict(dict)
         self.init_display()
         
-        self.init(eye_contexts)
+        self.init(self.eye_contexts)
 
     def load_constraints(self):
         if self.cfg_db['eye_constraints'] is None:
@@ -256,14 +256,14 @@ class gecko_eye_t(object):
             'JOYSTICK_X_FLIP': False, # If True, reverse stick X axis
             'JOYSTICK_Y_FLIP': False, # If True, reverse stick Y axis
             'PUPIL_IN_FLIP': False, # If True, reverse reading from PUPIL_IN
-            #'TRACKING'        = True  # If True, eyelid tracks pupil
             'TRACKING': True,  # If True, eyelid tracks pupil
+            #'TRACKING': False,  # If True, eyelid tracks pupil            
             'PUPIL_SMOOTH': 16,    # If > 0, filter input from PUPIL_IN
             'pupil_min': 0.0,   # Lower analog range from PUPIL_IN            
             'pupil_max': 1.0,   # Upper "
             'pupil_normal': 0.5,   # Normal pupil dilation
             'AUTOBLINK' : True,  # If True, eye blinks autonomously
-            #AUTOBLINK       = False,  # If True, eye blinks autonomously
+            #'AUTOBLINK'  : False,  # If True, eye blinks autonomously
             'switch_on_blink' : True,
             'blink_angry_duration_close_min_sec' : 0.10, # original: 0.06
             'blink_angry_duration_close_max_sec' : 0.30, # original: 0.12
@@ -318,9 +318,11 @@ class gecko_eye_t(object):
 		},
             'dragon': {
 		'eye.shape': 'graphics/dragon-eye.svg',
-		'iris.art': 'graphics/dragon-iris.jpg',
+		#'iris.art': 'graphics/dragon-iris.jpg',
+		'iris.art': 'hack_graphics/Metal Iris_00145.jpg',                
 		'lid.art': 'graphics/lid.png',
-		'sclera.art': 'graphics/dragon-sclera.png'
+		#'sclera.art': 'graphics/dragon-sclera.png'
+                'sclera.art': 'hack_graphics/Circuit sclera_00000.jpg',
             },
             'hack': {
 		'eye.shape': 'graphics/cyclops-eye.svg',                
@@ -365,6 +367,11 @@ class gecko_eye_t(object):
             'mcaddr_eyes' : '239.255.223.02'
         }
 
+        self.hack_eye_shapes = [
+	    'graphics/cyclops-eye.svg',
+	    'graphics/dragon-eye.svg',            
+        ]
+        
         self.hack_scleras = [
             'hack_graphics/Circuit sclera_00000.jpg',
             'hack_graphics/Circuit sclera_00001.jpg',
@@ -419,10 +426,11 @@ class gecko_eye_t(object):
         if eye_context is None:
             return
 
-        if eye_context in ['hack']:
+        if eye_context in ['hack','dragon']:
             self.load_textures(eye_context)
             self.iris.set_textures([self.irisMap])
             self.eye.set_textures([self.scleraMap])            
+            #self.init_svg(eye_context)
             
         #print (self.eye_cache[eye_context])
         self.vb = self.eye_cache[eye_context]['vb']
@@ -642,8 +650,11 @@ class gecko_eye_t(object):
             
             done = self.eye_constraints[key]
 
-        print ('random_eye: {}, {}'.format(fname_sclera,
-                                           fname_iris))
+        #fname_eye_shape = random.choice(self.hack_eye_shapes)
+        print ('random_eye: {}, {}'.format(
+            fname_sclera,
+            fname_iris))
+        
         return (fname_sclera,fname_iris)
 
     def load_animations(self,defer_loading=False,eye_context=None):
@@ -666,14 +677,17 @@ class gecko_eye_t(object):
         # Load texture maps --------------------------------------------------------
 
         defer_loading = False # Pre-cache textures at setup
-        if eye_context in ['hack']:
-            (self.fname_sclera,self.fname_iris) = self.constrained_random_eye()
+        if eye_context in ['hack','dragon']:
+            (self.fname_sclera,
+             self.fname_iris) = self.constrained_random_eye()
         else:
             self.fname_iris = self.cfg_db[eye_context]['iris.art']
             self.fname_sclera = self.cfg_db[eye_context]['sclera.art']
 
         print ('fname_sclera: {}'.format(self.fname_sclera))            
         print ('fname_iris: {}'.format(self.fname_iris))
+        #print ('fname_eye_shape: {}'.format(self.cfg_db[eye_context]['eye.shape']))
+
         self.irisMap = pi3d.Texture(self.fname_iris,
                                     mipmap=False, # True, doesn't look as good
                                     defer=defer_loading,
@@ -921,7 +935,7 @@ class gecko_eye_t(object):
                 self.do_joystick()
                 do_exit |= self.keyboard_sample()
                     
-                if self.cfg_db['demo'] and \
+                if (self.cfg_db['demo'] or self.cfg_db['playa']) and \
                    int(now_sec - self.last_eye_art_sec) > self.cfg_db['demo_eye_tenure_secs']:
                     self.last_eye_art_sec = now_sec
                     next_eye = self.random_next_eye()
@@ -1029,7 +1043,8 @@ class gecko_eye_t(object):
 	self.frame_cnt += 1
         if (self.frame_cnt % 1000) == 0:
             frame_rate = float(self.frame_cnt) / float(now_sec - self.run_start_time)
-            print ('frame rate: {}'.format(frame_rate))
+            if False:
+                print ('frame rate: {}'.format(frame_rate))
             
 #	if(now_sec > beginningTime):
 #		print(frames/(now_sec-beginningTime))
@@ -1353,9 +1368,9 @@ class gecko_eye_t(object):
                 self.event_overrideBlinkDurationClose = \
                     random.uniform(self.cfg_db['blink_duration_joystickmin_sec'],
                                    self.cfg_db['blink_duration_joystickmax_sec'])
-            elif event in ['eye_context_9']:
+            elif event in ['eye_context_9'] and self.cfg_db['demo']:
                 self.eye_context_next = 'dragon'
-            elif event in ['eye_context_11']:
+            elif event in ['eye_context_11'] and self.cfg_db['demo']:
                 self.eye_context_next = 'cyclops'
             elif event in ['eye_context_12']:
                 self.eye_context_next = 'hack'
@@ -1369,9 +1384,10 @@ class gecko_eye_t(object):
         next_eye = self.EYE_SELECT
         while next_eye is self.EYE_SELECT:
             if self.cfg_db['playa']:
-                next_eye = 'hack'
+                next_eye = random.choice(['hack','dragon'])
             else:
-                next_eye = random.choice(['cyclops','dragon','hack'])
+                #next_eye = random.choice(['cyclops','dragon','hack'])
+                next_eye = random.choice(self.eye_contexts)
 
         return next_eye
         
@@ -1531,7 +1547,10 @@ class gecko_eye_t(object):
         do_exit = False
         if self.cfg_db['demo']:
             self.cfg_db['eye_orientation'] = random.choice(['left','right'])
-            print ('eye_orientation: {}'.format(self.cfg_db['eye_orientation']))
+        elif self.cfg_db['playa']:
+            self.cfg_db['eye_orientation'] = 'right'
+            
+        print ('eye_orientation: {}'.format(self.cfg_db['eye_orientation']))
 
         now_time = time.time()
         self.run_start_time = now_time
@@ -1597,7 +1616,7 @@ class gecko_eye_t(object):
             print ('exiting')
             if self.cfg_db['demo']:
                 self.eye_context_next = self.EYE_SELECT
-            elif self.EYE_SELECT in ['hack']:
+            elif self.EYE_SELECT in ['hack','dragon']:
                 self.eye_context_next = self.EYE_SELECT                                
             else:
                 self.eye_context_next = None
