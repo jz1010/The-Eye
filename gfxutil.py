@@ -51,10 +51,12 @@ def getPoints(root, id, numPoints, closed, reverse):
 
 # Scale a given 2D point list by normalizing to a given view box (returned
 # by getViewBox()) then expanding to a given size centered on (0,0).
-def scalePoints(p, vb, radius):
+def scalePoints(p, vb, offset_x, offset_y, radius):
 	for i, pt in enumerate(p): # Each point in path
 		xx = ((p[i][0] - vb[0]) / vb[2] - 0.5) * radius *  2.0
 		yy = ((p[i][1] - vb[1]) / vb[3] - 0.5) * radius * -2.0
+                xx += offset_x
+                yy += offset_y
 		p[i] = (xx, yy)
 
 

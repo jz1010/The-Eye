@@ -247,7 +247,7 @@ class gecko_eye_t(object):
             'demo_eye_tenure_secs' : 3,
             'playa' : False, # Playa mode operation
             'joystick_test' : False, # No test messages from joystick
-            'eye_queue_max' : 10, # maximum depth of eye event queue
+            'eye_queue_max' : 1, # maximum depth of eye event queue
             'screenshots' : False, # Enumerates graphics and take screenshots
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
@@ -296,8 +296,8 @@ class gecko_eye_t(object):
             'hold_angry_duration_min_sec' : 0.1, # original: 0.1
             'hold_angry_duration_max_sec' : 1.1, # original: 1.1
             
-            'move_duration_min_sec' : 1.7, # original: 0.075
-            'move_duration_max_sec' : 4.0, # original: 0.175
+            'move_duration_min_sec' : 7.5, # original: 0.075
+            'move_duration_max_sec' : 12.0, # original: 0.175
             
             'hold_duration_min_sec' : 2.1, # original: 0.1
             'hold_duration_max_sec' : 4.0, # original: 1.1
@@ -469,20 +469,18 @@ class gecko_eye_t(object):
         
     def init(self,eye_contexts):
         # Eye context dependent
+        
+        # Load animations
         if False:
-            self.init_svg()
-            self.load_textures(eye_context)
-        else:
-            # Load animations
-            #self.load_animations()
+            self.load_animations()
                         
-            # Build eyes
-            for eye_context in eye_contexts:
-                self.init_svg(eye_context)
-                self.load_textures(eye_context)
-                self.init_geometry(eye_context)
-                self.eye_cache[eye_context]['geometry_initialized'] = True
-                self.init_globals()
+        # Build eyes
+        for eye_context in eye_contexts:
+            self.init_svg(eye_context)
+            self.load_textures(eye_context)
+            self.init_geometry(eye_context)
+            self.eye_cache[eye_context]['geometry_initialized'] = True
+            self.init_globals()
             
         # Set eye context
         #next_eye = 'cyclops'
@@ -613,6 +611,9 @@ class gecko_eye_t(object):
         global DISPLAY
         self.DISPLAY = DISPLAY
         self.DISPLAY.set_background(0, 0, 0, 1) # r,g,b,alpha
+        #self.DISPLAY.set_background(0, 128, 0, 1) # green
+        #self.DISPLAY.set_background(0, 100, 0, 1) # darkgreen
+        #self.DISPLAY.set_background(10, 50, 4, 0) # experimental
 
         # eyeRadius is the size, in pixels, at which the whole eye will be rendered.
         if self.DISPLAY.width <= (self.DISPLAY.height * 2):
@@ -622,7 +623,7 @@ class gecko_eye_t(object):
             else:
                 self.eyeRadius   = self.DISPLAY.height / 1.7 #1.6 eye spills off screen
         else:
-            self.eyeRadius   = self.DISPLAY.height * 2 / 5
+            self.eyeRadius   = self.DISPLAY.height * 2.0 / 5.0
 
         # A 2D camera is used, mostly to allow for pixel-accurate eye placement,
         # but also because perspective isn't really helpful or needed here, and
@@ -795,17 +796,19 @@ class gecko_eye_t(object):
         # Initialize static geometry -----------------------------------------------
 
         # Transform point lists to eye dimensions
-        scalePoints(self.pupilMinPts      , self.vb, self.eyeRadius)
-        scalePoints(self.pupilMaxPts      , self.vb, self.eyeRadius)
-        scalePoints(self.irisPts          , self.vb, self.eyeRadius)
-        scalePoints(self.scleraFrontPts   , self.vb, self.eyeRadius)
-        scalePoints(self.scleraBackPts    , self.vb, self.eyeRadius)
-        scalePoints(self.upperLidClosedPts, self.vb, self.eyeRadius)
-        scalePoints(self.upperLidOpenPts  , self.vb, self.eyeRadius)
-        scalePoints(self.upperLidEdgePts  , self.vb, self.eyeRadius)
-        scalePoints(self.lowerLidClosedPts, self.vb, self.eyeRadius)
-        scalePoints(self.lowerLidOpenPts  , self.vb, self.eyeRadius)
-        scalePoints(self.lowerLidEdgePts  , self.vb, self.eyeRadius)
+        offset_x = 0.0
+        offset_y = 0.0
+        scalePoints(self.pupilMinPts      , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.pupilMaxPts      , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.irisPts          , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.scleraFrontPts   , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.scleraBackPts    , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.upperLidClosedPts, self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.upperLidOpenPts  , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.upperLidEdgePts  , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.lowerLidClosedPts, self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.lowerLidOpenPts  , self.vb, offset_x, offset_y, self.eyeRadius)
+        scalePoints(self.lowerLidEdgePts  , self.vb, offset_x, offset_y, self.eyeRadius)
 
         # Regenerating flexible object geometry (such as eyelids during blinks, or
         # iris during pupil dilation) is CPU intensive, can noticably slow things
