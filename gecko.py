@@ -326,8 +326,8 @@ class gecko_eye_t(object):
                 'sclera.art': 'hack_graphics/Circuit sclera_00000.jpg',
             },
             'hack': {
-		'eye.shape': 'graphics/cyclops-eye.svg',                
-#		'eye.shape': 'hack_graphics/dragon-eye.svg',
+#		'eye.shape': 'graphics/cyclops-eye.svg',                
+		'eye.shape': 'hack_graphics/gecko-eye_playa.svg',
 #		'eye.shape': 'hack_graphics/gecko-eye_0.svg',                
 #		'iris.art': 'hack_graphics/iris.jpg',
 
@@ -427,7 +427,7 @@ class gecko_eye_t(object):
         if eye_context is None:
             return
 
-        if eye_context in ['hack','dragon']:
+        if eye_context in ['hack']:
             self.load_textures(eye_context)
             self.iris.set_textures([self.irisMap])
             self.eye.set_textures([self.scleraMap])            
@@ -678,7 +678,7 @@ class gecko_eye_t(object):
         # Load texture maps --------------------------------------------------------
 
         defer_loading = False # Pre-cache textures at setup
-        if eye_context in ['hack','dragon']:
+        if eye_context in ['hack']:
             (self.fname_sclera,
              self.fname_iris) = self.constrained_random_eye()
         else:
@@ -1386,7 +1386,7 @@ class gecko_eye_t(object):
         next_eye = self.EYE_SELECT
         while next_eye is self.EYE_SELECT:
             if self.cfg_db['playa']:
-                next_eye = random.choice(['hack','dragon'])
+                break
             else:
                 #next_eye = random.choice(['cyclops','dragon','hack'])
                 next_eye = random.choice(self.eye_contexts)
@@ -1618,7 +1618,7 @@ class gecko_eye_t(object):
             print ('exiting')
             if self.cfg_db['demo']:
                 self.eye_context_next = self.EYE_SELECT
-            elif self.EYE_SELECT in ['hack','dragon']:
+            elif self.EYE_SELECT in ['hack']:
                 self.eye_context_next = self.EYE_SELECT                                
             else:
                 self.eye_context_next = None
