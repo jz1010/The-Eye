@@ -26,7 +26,9 @@ hdmi_force_hotplug=1
 
 # uncomment to force a specific HDMI mode (this will force VGA)
 hdmi_group=2
-hdmi_mode=87
+hdmi_mode=14
+
+#hdmi_mode=87  # Custom modes below apply
 
 # uncomment to force a HDMI mode rather than DVI. This can make audio work in
 # DMT (computer monitor) modes
