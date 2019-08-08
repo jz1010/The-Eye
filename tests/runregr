@@ -41,6 +41,8 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --demo
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --playa
     ${DVROOT}/run --screenshots 
+    ${DVROOT}/utils/wrap_playa --timeout_secs ${TIMEOUT_SECS}
+    ${DVROOT}/utils/wrap_demo --timeout_secs ${TIMEOUT_SECS}    
 
 #    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
 fi
