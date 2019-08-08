@@ -66,6 +66,7 @@ class gecko_eye_t(object):
         self.test_joystick_cnt = 0
 
         # Other timer initialization
+        self.time_last_joystick_service = 0
         self.nxt_emotion_sec = 0
         self.last_v = 0.5
         self.last_eye_comm_recv = 0
@@ -283,6 +284,7 @@ class gecko_eye_t(object):
             
             'blink_duration_joystickmin_sec' : 0.035, # caused by Joystick trigger
             'blink_duration_joystickmax_sec' : 0.06, # caused by Joystick trigger
+            'joystick_service_interval_sec' : 0.20,
             
             'pupil_auto_expand_sec' : 12.0,
             'pupil_auto_contract_sec' : 4.0,
@@ -302,8 +304,8 @@ class gecko_eye_t(object):
             'hold_duration_min_sec' : 2.1, # original: 0.1
             'hold_duration_max_sec' : 4.0, # original: 1.1
 
-            'move_fast_duration_joystick_sec' : 0.80, # caused by Joystick position
-            'move_slow_duration_joystick_sec' : 2.00, # caused by Joystick position
+            'move_fast_duration_joystick_sec' : 0.10, # caused by Joystick position
+            'move_slow_duration_joystick_sec' : 0.50, # caused by Joystick position
 
             'auto_restart_interval_sec' : 4.00, # time after last joystick input auto-mode engages
             'emotion_interval_sec' : 8.0, # Interval between next emotion
@@ -1082,8 +1084,12 @@ class gecko_eye_t(object):
                         self.holdDuration = random.uniform(self.cfg_db['hold_duration_min_sec'],
                                                            self.cfg_db['hold_duration_max_sec'])
                     self.move_startTime    = now_sec
-                    self.isMoving     = False
-            elif self.eye_event_queued(): # Joystick control has priority
+                    self.isMoving     = False                    
+            elif self.eye_event_queued() and \
+               now_sec > (self.time_last_joystick_service + \
+                          self.cfg_db['joystick_service_interval_sec']):
+               # Joystick control has next priority
+                self.time_last_joystick_service = now_sec
                 self.eye_event_prev = self.eye_event
                 self.eye_event_queue = self.opt_eye_event_queue()
                 self.eye_event = self.eye_event_queue.pop(0)
@@ -1353,7 +1359,11 @@ class gecko_eye_t(object):
 
     def set_eye_event(self,eye_event):
         if len(self.eye_event_queue) < self.cfg_db['eye_queue_max']:
-            self.eye_event_queue.append(eye_event)
+            if type(eye_event) is list:
+                for event in eye_event:
+                    self.eye_event_queue.append(event)
+            else:
+                self.eye_event_queue.append(eye_event)                
         
     def handle_events(self,events):
         if len(events) == 0:
@@ -1363,6 +1373,8 @@ class gecko_eye_t(object):
             print ('handle_event: {}'.format(event))
             if type(event) is tuple:
                 self.set_eye_event(event)
+            elif type(event) is list:
+                self.set_eye_event(event)                
             elif event in ['pupil_widen','pupil_narrow']:
                 if not self.pupil_event_queued:
                     self.event_pupil = event
@@ -1465,7 +1477,7 @@ class gecko_eye_t(object):
             if self.joystick is None:
                 self.handle_events(gecko_events)
             else:
-                print ('Joystick master ignoring loopback events')
+                print ('Joystick connected master ignoring loopback events')
             
     def create_joystick_test_msg(self):
         #eye_event = random.choice(self.test_eye_events)
@@ -1491,9 +1503,15 @@ class gecko_eye_t(object):
                    eye_event in ['blink']:
                     continue
 
-                print ('eye_comm: send: {}'.format(eye_event))
-                self.eye_server.send_msg(eye_event)
-                eye_event_last = eye_event
+                if self.cfg_db['demo']: # some day also or self.cfg_db['playa']
+                    print ('eye_comm: send: {}'.format(eye_event))
+                    if type(eye_event) is list:
+                        for event in eye_event:
+                            self.eye_server.send_msg(event)
+                        eye_event_last = event
+                    else:
+                        self.eye_server.send_msg(eye_event)
+                        eye_event_last = eye_event
             self.joystick_polls +=1
             self.joystick_msg_cnt += len(gecko_events)
         

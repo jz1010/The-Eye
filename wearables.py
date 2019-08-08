@@ -33,6 +33,8 @@ class wearables_server_t(object):
                 elapsed = 1
             else:
                 pass
+        elif type(msg) is list:
+            raise
         else:
             msg_effect = msg
         print "TX   %-16s elapsed: %04d beat: %04d hue_med:%03d hue_dev:%03d" % (msg_effect, elapsed, beat, hue_med, hue_dev)
@@ -95,7 +97,8 @@ class wearables_client_t(object):
                 msgs.append(msg_rec)
                 self.cnt_recv += 1
                 
-    	        print "RX %s:%s   %-16s elapsed: %04d beat: %04d hue_med: %03d hue_dev: %03d" % (addr[0], addr[1], effect.rstrip('\0'), elapsed, beat, hue_med, hue_dev)
+#    	        print "RX %s:%s   %-16s elapsed: %04d beat: %04d hue_med: %03d hue_dev: %03d" % (addr[0], addr[1], effect.rstrip('\0'), elapsed, beat, hue_med, hue_dev)
+    	        print "RX %s:%s   %-16s elapsed: %04d beat: %04d hue_med: %03d hue_dev: %03d" % (addr[0], addr[1], effect, elapsed, beat, hue_med, hue_dev)
             except socket.error, e:
                 if e.args[0] == errno.EWOULDBLOCK:
                     break

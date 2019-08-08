@@ -78,14 +78,17 @@ class joystick_t(object):
         ]
 
         self.center_pattern = [('eye_center','fast')]
-        self.twist_pattern_cclockwise = \
+        self.twist_pattern_cclockwise = [ \
             self.center_pattern + \
             self.twist_pattern + \
             self.center_pattern
-        self.twist_pattern_clockwise = \
+        ]
+        
+        self.twist_pattern_clockwise = [ \
             self.center_pattern + \
             self.twist_pattern[::-1] + \
             self.center_pattern
+        ]
         
         self.sample_interval = 2.00 # secs
         self.time_last_sample = 0
@@ -141,7 +144,7 @@ class joystick_t(object):
                     crazy_pattern = self.twist_pattern
                     random.shuffle(crazy_pattern)                    
                     crazy_pattern += self.center_pattern
-                    gecko_events += crazy_pattern
+                    gecko_events += [crazy_pattern]
                 elif button_name in ['9']:
                     gecko_events.append('eye_context_9')                    
                 elif button_name in ['11']:
@@ -213,14 +216,17 @@ class joystick_t(object):
                                 self.t_long_hi))
                         
                 elif event.code in [5]: # stick twist
-                    print ('ABS_5: {}'.format(event.value))
+                    #print ('ABS_5: {}'.format(event.value))
                     if event.value >= self.twist_range_lo and \
                        event.value <= self.twist_mid_lo:
-                        twist_pattern = self.twist_pattern_cclockwise
+                        #twist_pattern = self.twist_pattern_cclockwise
+                        twist_pattern = None
                     elif event.value <= self.twist_range_hi and \
                          event.value >= self.twist_mid_hi:
-                        twist_pattern = self.twist_pattern_clockwise
+                        #twist_pattern = self.twist_pattern_clockwise
+                        twist_pattern = None
                     else: # Outside ranges
+                        pass
                         twist_pattern = None
 
                     if twist_pattern is not None:
