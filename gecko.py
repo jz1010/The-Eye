@@ -1389,7 +1389,7 @@ class gecko_eye_t(object):
                 self.eye_context_next = 'dragon'
             elif event in ['eye_context_11'] and self.cfg_db['demo']:
                 self.eye_context_next = 'cyclops'
-            elif event in ['eye_context_12']:
+            elif event in ['eye_context_12'] and self.cfg_db['demo']:
                 self.eye_context_next = 'hack'
             else:
                 print ('** Unhandled event: {}'.format(event))
