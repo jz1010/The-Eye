@@ -892,6 +892,7 @@ class gecko_eye_t(object):
 
         self.timeOfLastBlink = 0.0
         self.timeToNextBlink = 1.0
+        self.override_timeToNextBlink = None
         self.blinkState      = BLINK_NONE
         self.blinkDuration   = 0.1
         self.blinkStartTime  = 0
@@ -1213,8 +1214,12 @@ class gecko_eye_t(object):
 		self.blinkState = BLINK_CLOSING 
 		self.blinkStartTime = now_sec
 		self.blinkDuration = duration
-            self.timeToNextBlink = duration * self.cfg_db['blink_interval_min_sec'] + \
-                random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
+            if self.override_timeToNextBlink is not None:
+                self.timeToNextBlink = self.override_timeToNextBlink
+                self.override_timeToNextBlink = None                
+            else:
+                self.timeToNextBlink = duration * self.cfg_db['blink_interval_min_sec'] + \
+                    random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
             self.event_doBlink = False
 
 	if self.blinkState: # Eye currently winking/blinking (BLINK_CLOSING or BLINK_OPENING)
@@ -1369,7 +1374,8 @@ class gecko_eye_t(object):
     def handle_events(self,events):
         if len(events) == 0:
             return
-        
+
+        now_sec = time.time()        
         for event in events:
             print ('handle_event: {}'.format(event))
             if type(event) is tuple:
@@ -1386,6 +1392,11 @@ class gecko_eye_t(object):
                 self.event_overrideBlinkDurationClose = \
                     random.uniform(self.cfg_db['blink_duration_joystickmin_sec'],
                                    self.cfg_db['blink_duration_joystickmax_sec'])
+	        self.timeOfLastBlink = now_sec
+                self.override_timeToNextBlink = self.event_overrideBlinkDurationClose + \
+                    self.cfg_db['blink_interval_min_sec'] + \
+                    random.uniform(0.0,self.cfg_db['blink_interval_range_sec'])
+                
             elif event in ['eye_context_9'] and self.cfg_db['demo']:
                 self.eye_context_next = 'dragon'
             elif event in ['eye_context_11'] and self.cfg_db['demo']:
