@@ -42,8 +42,6 @@ BLINK_NONE = 0
 BLINK_CLOSING = 1
 BLINK_OPENING = 2
 
-INPUT_DEV_RETRY_SECS = 600
-
 class gecko_eye_t(object):
     def __init__(self,debug=False,EYE_SELECT=None):
         self.debug = debug
@@ -310,6 +308,9 @@ class gecko_eye_t(object):
             'auto_restart_interval_sec' : 4.00, # time after last joystick input auto-mode engages
             'emotion_interval_sec' : 8.0, # Interval between next emotion
 
+            'joystick_retry_init_sec' : (5*60), # 5 mins
+            'keyboard_retry_init_sec' : (60*60), # 1 hour
+
             #
             # Eye graphics definitions
             #
@@ -536,7 +537,7 @@ class gecko_eye_t(object):
     def init_joystick(self):
         if self.joystick is None:
             now = time.time()
-            if now - self.joystick_last_retry <= INPUT_DEV_RETRY_SECS:
+            if now - self.joystick_last_retry <= self.cfg_db['joystick_retry_init_sec']:
                 return
 
             self.joystick_last_retry = now
@@ -559,7 +560,7 @@ class gecko_eye_t(object):
     def init_keyboard(self):
         if self.keyboard is None:
             now = time.time()
-            if now - self.keyboard_last_retry <= INPUT_DEV_RETRY_SECS:
+            if now - self.keyboard_last_retry <= self.cfg_db['keyboard_retry_init_sec']:
                 return
 
             self.keyboard_last_retry = now
