@@ -43,10 +43,8 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
     ${DVROOT}/run --screenshots
 
 # These modes are set up as infinite loops    
-#    ${DVROOT}/utils/wrap_playa --timeout_secs ${TIMEOUT_SECS}
-#    ${DVROOT}/utils/wrap_demo --timeout_secs ${TIMEOUT_SECS}    
-
-#    python ${TEST_ROOT}/gecko.py --eye_select=hack --demo --timeout_secs 60
+    ${DVROOT}/utils/playa --timeout_secs ${TIMEOUT_SECS}
+    ${DVROOT}/utils/demo --timeout_secs ${TIMEOUT_SECS}    
 fi
 
 
