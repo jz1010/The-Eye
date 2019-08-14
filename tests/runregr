@@ -49,11 +49,12 @@ fi
 
 
 DIR_IMG=/mnt/skynet/sboxes_gecko
-#FNAME_IMAGE=${DIR_IMG}/2019-06-09_demo.img
-FNAME_IMAGE=${DIR_IMG}/2019-06-09_demo.img.gz
+FNAME_IMAGE_DEMO=${DIR_IMG}/2019-06-09_demo.img.gz
+FNAME_IMAGE_PLAYA=${DIR_IMG}/2019-08-14_playa.img.gz
 
 if [ ${TEST_MODE} == "nightly_tools" ]; then
-    ${DVROOT}/utils/gecko_mkimg ${FNAME_IMAGE} |& tee log.gecko_mkimg
+    ${DVROOT}/utils/gecko_mkimg ${FNAME_IMAGE_DEMO} |& tee log.gecko_mkimg_demo
+    ${DVROOT}/utils/gecko_mkimg ${FNAME_IMAGE_PLAYA} |& tee log.gecko_mkimg_playa
 fi
 
 echo "** REGRESSION PASSED **"
