@@ -73,7 +73,7 @@ if [ ! -f .gecko_runonce ]; then
    sudo systemctl start ssh
    sudo apt-get install emacs git python-pip python3-pip -y   
 #   sudo apt-get install python-pygame -y
-   sudo pip install evdev
+   sudo pip install evdev openpyxl
    sudo apt-get install libjpeg-dev -y
    sudo pip3 install FBpyGIF
 
