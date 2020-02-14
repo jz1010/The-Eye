@@ -515,7 +515,9 @@ class gecko_eye_t(object):
                        re.search(r'keyboard',device.name,re.IGNORECASE):
                         return device_name
                     elif input_name in ['joystick'] and \
-                         re.search(r'extreme 3d',device.name,re.IGNORECASE):
+                         ((re.search(r'extreme(\s+)3d',device.name,re.IGNORECASE) or \
+                           re.search(r'logitech(\s+)freedom',device.name,re.IGNORECASE))):
+                        print('Found joystick device: {}'.format(device_name))
                         return device_name
         return None
 
