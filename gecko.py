@@ -246,6 +246,7 @@ class gecko_eye_t(object):
             'demo_eye_tenure_secs' : 3,
             'playa' : False, # Playa mode operation
             'joystick_test' : False, # No test messages from joystick
+            'joystick_mode' : 0, # 0: Discrete mode, 1: Continuous mode
             'eye_queue_max' : 1, # maximum depth of eye event queue
             'screenshots' : False, # Enumerates graphics and take screenshots
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
@@ -308,7 +309,7 @@ class gecko_eye_t(object):
             'auto_restart_interval_sec' : 4.00, # time after last joystick input auto-mode engages
             'emotion_interval_sec' : 8.0, # Interval between next emotion
 
-            'joystick_retry_init_sec' : (5*60), # 5 mins
+            'joystick_retry_init_sec' : (2*60), # 5 mins
             'keyboard_retry_init_sec' : (60*60), # 1 hour
 
             #
@@ -545,7 +546,8 @@ class gecko_eye_t(object):
             self.joystick_last_retry = now
             
             device_name = self.find_input_device('joystick')
-            self.joystick = joystick_t(joystick_dev=device_name)
+            self.joystick = joystick_t(joystick_dev=device_name,
+                                       joystick_mode=self.cfg_db['joystick_mode'])
             self.joystick_polls = 0
             self.joystick_msg_cnt = 0
             

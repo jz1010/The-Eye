@@ -5,8 +5,9 @@ import time
 import random
 
 class joystick_t(object):
-    def __init__(self,joystick_dev='/dev/input/event1',debug=False):
+    def __init__(self,joystick_dev='/dev/input/event1',joystick_mode=0,debug=False):
         self.joystick_dev = joystick_dev
+        self.joystick_mode = joystick_mode
         self.debug = debug
         self.eye_direction_last = None
         self.last_joystick_event_time = 0
@@ -123,36 +124,73 @@ class joystick_t(object):
             if event is None:
                 break
             events.append(event)
-            
+
+        if self.joystick_mode in [0]: # discrete event mode
+            gecko_events = self.process_discrete(gecko_events,events)
+        elif self.joystick_mode in [1]: # continuous event mode
+            gecko_events = self.process_continuous(gecko_events,events)
+        else:
+            raise
+
+        return gecko_events
+
+    def process_button(self,gecko_events,event):
+        if event.code not in self.buttons:
+            return gecko_events # unhandled event
+        
+        button_name = self.buttons[event.code]['button']
+        button_val = event.value
+        print ('button: {} state: {}'.format(button_name,button_val))
+        if button_name in ['trigger']:
+            gecko_events.append('blink')
+        elif button_name in ['2']:
+            #event = ('eye_center','fast')
+            event = ('eye_center','slow')                    
+            gecko_events.append(event)
+        elif button_name in ['3']:
+            if button_val in [0]: # release
+                return gecko_events
+            crazy_pattern = self.twist_pattern
+            random.shuffle(crazy_pattern)                    
+            crazy_pattern += self.center_pattern
+            gecko_events += [crazy_pattern]
+        elif button_name in ['9']:
+            gecko_events.append('eye_context_9')                    
+        elif button_name in ['11']:
+            gecko_events.append('eye_context_11')                    
+        elif button_name in ['12']:
+            gecko_events.append('eye_context_12')
+        else:
+            pass
+
+        return gecko_events
+
+    def process_hat(self,gecko_events,event):
+        if event.code in [17]: # Hat forward/back
+            if event.value in [-1]: # hat forward
+                gecko_events.append('pupil_widen')
+            elif event.value in [0]: # hat middle
+                pass
+            elif event.value in [1]: # hat back
+                gecko_events.append('pupil_narrow')                        
+            else:
+                raise
+        elif event.code in [16]: # Hat left/right
+            if event.value in [-1]: # hat left
+                pass
+            elif event.value in [0]: # hat middle
+                pass
+            elif event.value in [1]: # hat right
+                pass
+            else:
+                raise
+
+        return gecko_events
+    
+    def process_discrete(self,gecko_events,events):
         for event in events:
             if event.type in [ecodes.EV_KEY]:
-                if event.code not in self.buttons:
-                    continue # unhandled event
-
-                button_name = self.buttons[event.code]['button']
-                button_val = event.value
-                print ('button: {} state: {}'.format(button_name,button_val))
-                if button_name in ['trigger']:
-                    gecko_events.append('blink')
-                elif button_name in ['2']:
-                    #event = ('eye_center','fast')
-                    event = ('eye_center','slow')                    
-                    gecko_events.append(event)
-                elif button_name in ['3']:
-                    if button_val in [0]: # release
-                        continue
-                    crazy_pattern = self.twist_pattern
-                    random.shuffle(crazy_pattern)                    
-                    crazy_pattern += self.center_pattern
-                    gecko_events += [crazy_pattern]
-                elif button_name in ['9']:
-                    gecko_events.append('eye_context_9')                    
-                elif button_name in ['11']:
-                    gecko_events.append('eye_context_11')                    
-                elif button_name in ['12']:
-                    gecko_events.append('eye_context_12')
-                else:
-                    pass
+                gecko_events = self.process_button(gecko_events,event)
             elif event.type in [ecodes.EV_ABS]: # stick handle
                 eye_direction = None
                 eye_movement_rate = None
@@ -239,25 +277,9 @@ class joystick_t(object):
                         
                         print ('twist_pattern: {}'.format(twist_pattern))
                         gecko_events += twist_pattern
-                    
-                elif event.code in [17]: # Hat forward/back
-                    if event.value in [-1]: # hat forward
-                        gecko_events.append('pupil_widen')
-                    elif event.value in [0]: # hat middle
-                        pass
-                    elif event.value in [1]: # hat back
-                        gecko_events.append('pupil_narrow')                        
-                    else:
-                        raise
-                elif event.code in [16]: # Hat left/right
-                    if event.value in [-1]: # hat left
-                        pass
-                    elif event.value in [0]: # hat middle
-                        pass
-                    elif event.value in [1]: # hat right
-                        pass
-                    else:
-                        raise
+
+                elif event.code in [17,16]:
+                    gecko_events = self.process_hat(gecko_events,event)
                 else:
                     print ('Analog unhandled event: {}'.format(event))
 
