@@ -186,6 +186,38 @@ class joystick_t(object):
                 raise
 
         return gecko_events
+
+    def process_continuous(self,gecko_events,events):
+        for event in events:
+            if event.type in [ecodes.EV_KEY]:
+                gecko_events = self.process_button(gecko_events,event)
+            elif event.type in [ecodes.EV_ABS]: # stick handle
+                if event.code in [0]: # stick left/right
+                    if self.debug:
+                        print ('Stick left/right, ABS_0: {}'.format(event))
+                    eye_direction = 'eye_goto'
+                    eye_movement_rate = 'fast'
+                    eye_x = float(event.value)
+                    eye_y = None
+                    gecko_event = (eye_direction,eye_movement_rate,eye_x,eye_y)
+                    gecko_events.append(gecko_event)
+                elif event.code in [1]: # stick forward/back
+                    if self.debug:
+                        print ('Stick forward/back ABS_1: {}'.format(event))
+                    eye_direction = 'eye_goto'
+                    eye_movement_rate = 'fast'
+                    eye_x = None
+                    eye_y = float(event.value)
+                    gecko_event = (eye_direction,eye_movement_rate,eye_x,eye_y)
+                    gecko_events.append(gecko_event)
+                elif event.code in [5]: # stick twist
+                    pass
+                elif event.code in [17,16]:
+                    gecko_events = self.process_hat(gecko_events,event)
+                else:
+                    print ('Analog unhandled event: {}'.format(event))
+            
+        return gecko_events
     
     def process_discrete(self,gecko_events,events):
         for event in events:
@@ -340,8 +372,8 @@ class joystick_t(object):
                         #continue
 
                     # Add event
-                    event = (eye_direction,eye_movement_rate)
-                    gecko_events.append(event)
+                    gecko_event = (eye_direction,eye_movement_rate)
+                    gecko_events.append(gecko_event)
 
                     # Prepare for next event
                     self.eye_direction_last = eye_direction

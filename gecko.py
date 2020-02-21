@@ -73,7 +73,13 @@ class gecko_eye_t(object):
         self.event_overrideBlinkDurationClose = None
         self.event_overrideBlinkDurationOpen = None        
         self.event_doBlink = False
-        
+
+        self.eye_range_x = 60.0
+        self.eye_range_y = 60.0
+        self.eye_half_range_x = self.eye_range_x / 2.0
+        self.eye_half_range_y = self.eye_range_y / 2.0                    
+    
+    
         self.parse_args()
         self.load_constraints()
         
@@ -171,10 +177,23 @@ class gecko_eye_t(object):
                                  default=self.cfg_db['joystick_test'],
                                  action='store_true',
                                  help='Inject joystick test messages')
+        self.parser.add_argument('--joystick_mode',
+                                 default=self.cfg_db['joystick_mode'],
+                                 action='store',
+                                 type=int,
+                                 help='Joystick mode of operation - 0:discrete event 1:continuous')
         self.parser.add_argument('--timeout_secs',
                                  default=self.cfg_db['timeout_secs'],
                                  action='store',type=int,
                                  help='Exit application after N seconds')
+        self.parser.add_argument('--joystick_service_interval_sec',
+                                 default=self.cfg_db['joystick_service_interval_sec'],
+                                 action='store',type=float,
+                                 help='Poll joystick with period in secs')
+        self.parser.add_argument('--move_fast_duration_joystick_sec',
+                                 default=self.cfg_db['move_fast_duration_joystick_sec'],
+                                 action='store',type=float,
+                                 help='Latency of fast eye repositioning in secs')
         self.parser.add_argument('--autoblink',
                                  default=self.cfg_db['AUTOBLINK'],
                                  action='store',
@@ -233,7 +252,10 @@ class gecko_eye_t(object):
         self.cfg_db['playa'] = args.playa
         self.cfg_db['screenshots'] = args.screenshots
         self.cfg_db['eye_constraints'] = args.eye_constraints
-                           
+        self.cfg_db['joystick_mode'] = args.joystick_mode
+        self.cfg_db['joystick_service_interval_sec'] = args.joystick_service_interval_sec
+        self.cfg_db['move_fast_duration_joystick_sec'] = args.move_fast_duration_joystick_sec
+        
         assert (not (self.cfg_db['demo'] and self.cfg_db['playa']))
         
         self.cfg_db['joystick_test'] = args.joystick_test
@@ -550,6 +572,8 @@ class gecko_eye_t(object):
                                        joystick_mode=self.cfg_db['joystick_mode'])
             self.joystick_polls = 0
             self.joystick_msg_cnt = 0
+            self.joystick_range = self.joystick.range_hi
+            self.joystick_half_range = self.joystick_range / 2.0
             
             # Set up state kept from events sampled from joystick
             if self.joystick.get_status():
@@ -1092,15 +1116,16 @@ class gecko_eye_t(object):
                     self.move_startTime    = now_sec
                     self.isMoving     = False                    
             elif self.eye_event_queued() and \
-               now_sec > (self.time_last_joystick_service + \
+               now_sec >= (self.time_last_joystick_service + \
                           self.cfg_db['joystick_service_interval_sec']):
                # Joystick control has next priority
                 self.time_last_joystick_service = now_sec
                 self.eye_event_prev = self.eye_event
-                self.eye_event_queue = self.opt_eye_event_queue()
+                if self.cfg_db['joystick_mode'] not in [1]:
+                    self.eye_event_queue = self.opt_eye_event_queue()
                 self.eye_event = self.eye_event_queue.pop(0)
                 #self.eye_event_queue = self.eye_event_queue[1:]
-                print ('frame event: {}'.format(self.eye_event))
+                #print ('frame event: {}'.format(self.eye_event))
                 
                 if type(self.eye_event) is tuple:
                     eye_look_direction = self.eye_event[0]
@@ -1110,7 +1135,27 @@ class gecko_eye_t(object):
                     eye_movement_rate = None
 
                 # Cause eye direction
-                if eye_look_direction in ['eye_up']:
+                if eye_look_direction in ['eye_goto']:
+                    x = self.eye_event[2]
+                    y = self.eye_event[3]
+                    if x is not None:
+                        if x >= (self.joystick_range / 2.0):
+                            self.destX = - (self.eye_half_range_x - \
+                                            ((self.joystick_range - x) / self.joystick_half_range) * \
+                                            self.eye_half_range_x)
+                        else:
+                            self.destX = ((self.joystick_half_range - x) / self.joystick_half_range) * \
+                                self.eye_half_range_x
+                    if y is not None:
+                        if y >= (self.joystick_range / 2.0):
+                            self.destY = - (self.eye_half_range_y - \
+                                            ((self.joystick_range - y) / self.joystick_half_range) * \
+                                            self.eye_half_range_y)
+                        else:
+                            self.destY = ((self.joystick_half_range - y) / self.joystick_half_range) * \
+                                self.eye_half_range_y
+                    #print ('destX: {} destY: {}'.format(self.destX,self.destY))
+                elif eye_look_direction in ['eye_up']:
                     self.destX = 0.0
                     n = math.sqrt(900.0 - self.destX * self.destX)
                     self.destY = n
@@ -1381,7 +1426,7 @@ class gecko_eye_t(object):
 
         now_sec = time.time()        
         for event in events:
-            print ('handle_event: {}'.format(event))
+            #print ('handle_event: {}'.format(event))
             if type(event) is tuple:
                 self.set_eye_event(event)
             elif type(event) is list:
@@ -1393,6 +1438,8 @@ class gecko_eye_t(object):
             elif event in ['blink']:
                 self.event_blink ^= 1
                 self.event_doBlink = True
+                if self.cfg_db['joystick_mode']  in [1]:
+                    self.isMoving = False
                 self.event_overrideBlinkDurationClose = \
                     random.uniform(self.cfg_db['blink_duration_joystickmin_sec'],
                                    self.cfg_db['blink_duration_joystickmax_sec'])
