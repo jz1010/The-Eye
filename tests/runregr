@@ -40,9 +40,13 @@ if [ ${TEST_MODE} != "nightly_tools" ]; then
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --eye_constraints hack_graphics/hack_constraints.xlsx
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --demo
     ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --playa
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --joystick_mode=0    
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --joystick_mode=1
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --joystick_service_interval_sec=0.0
+    ${DVROOT}/run --timeout_secs ${TIMEOUT_SECS} --move_fast_duration_joystick_sec=0.0
     ${DVROOT}/run --screenshots
 
-# These modes are set up as infinite loops    
+    # These modes are set up as infinite loops    
     ${DVROOT}/utils/playa --timeout_secs ${TIMEOUT_SECS}
     ${DVROOT}/utils/demo --timeout_secs ${TIMEOUT_SECS}    
 fi
