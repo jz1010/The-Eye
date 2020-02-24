@@ -327,6 +327,7 @@ class gecko_eye_t(object):
 
             'move_fast_duration_joystick_sec' : 0.10, # caused by Joystick position
             'move_slow_duration_joystick_sec' : 0.50, # caused by Joystick position
+            'move_scripted_duration_joystick_sec' : 0.10, # caused by Joystick position            
 
             'auto_restart_interval_sec' : 4.00, # time after last joystick input auto-mode engages
             'emotion_interval_sec' : 8.0, # Interval between next emotion
@@ -1195,7 +1196,9 @@ class gecko_eye_t(object):
                     self.event_moveDuration = self.cfg_db['move_slow_duration_joystick_sec']
                     # limit magnitude of movement                    
                     self.destX /= 2
-                    self.destY /= 2                    
+                    self.destY /= 2
+                elif eye_movement_rate in ['scripted']:
+                    self.event_moveDuration = self.cfg_db['move_scripted_duration_joystick_sec']
                 elif eye_movement_rate in ['fast']:
                     self.event_moveDuration = self.cfg_db['move_fast_duration_joystick_sec']
                 elif eye_movement_rate in ['slow']:

@@ -68,17 +68,17 @@ class joystick_t(object):
             self.twist_mid_lo,
             self.twist_mid_hi,            
             self.twist_range_hi))
-        self.twist_pattern = [('eye_southwest','fast'),
-                              ('eye_down','fast'),
-                              ('eye_southeast','fast'),
-                              ('eye_right','fast'),                         
-                              ('eye_northeast','fast'),
-                              ('eye_up','fast'),                                                  
-                              ('eye_northwest','fast'),
-                              ('eye_left','fast'),
+        self.twist_pattern = [('eye_southwest','scripted'),
+                              ('eye_down','scripted'),
+                              ('eye_southeast','scripted'),
+                              ('eye_right','scripted'),                         
+                              ('eye_northeast','scripted'),
+                              ('eye_up','scripted'),                                                  
+                              ('eye_northwest','scripted'),
+                              ('eye_left','scripted'),
         ]
 
-        self.center_pattern = [('eye_center','fast')]
+        self.center_pattern = [('eye_center','scripted')]
         self.twist_pattern_cclockwise = [ \
             self.center_pattern + \
             self.twist_pattern + \
