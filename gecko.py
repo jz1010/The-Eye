@@ -1628,6 +1628,9 @@ class gecko_eye_t(object):
         if self.debug:
             print ('joystick_polls: {}'.format(self.joystick_polls))
 
+        if gecko_events is None:
+            return 0
+        
         return (len(gecko_events) > 0)
     
 
