@@ -5,9 +5,10 @@ set -euxo pipefail
 USER=$(whoami)
 GROUP=develtools
 
-WORKDIR=/mnt/tmp_gecko/${USER}
-DROPBOX=/home/peck/Dropbox
+WORKDIR=${WORKDIR:-/mnt/tmp_local/${USER}/tmp_gecko}
 mkdir -p ${WORKDIR}
+
+DROPBOX=/home/peck/Dropbox
 
 F_IMAGE=$1
 DIRNAME=$(dirname ${F_IMAGE})
