@@ -942,10 +942,15 @@ class gecko_eye_t(object):
         self.trackingPos = 0.3        
 
         self.update_eye_events(reset=True)
-        self.test_eye_events = ['eye_right','eye_northeast',
-                                'eye_up','eye_northwest',
-                                'eye_left','eye_southwest',
-                                'eye_down','eye_southeast']
+        test_time = self.cfg_db['move_scripted_duration_joystick_sec']
+        self.test_eye_events = [('eye_right',test_time),
+                                ('eye_northeast',test_time),
+                                ('eye_up',test_time),
+                                ('eye_northwest',test_time),
+                                ('eye_left',test_time),
+                                ('eye_southwest',test_time),
+                                ('eye_down',test_time),
+                                ('eye_southeast',test_time)]
         
     def split(self, # Recursive simulated pupil response when no analog sensor
               startValue, # Pupil scale starting value (0.0 to 1.0)
