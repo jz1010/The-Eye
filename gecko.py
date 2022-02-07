@@ -194,6 +194,10 @@ class gecko_eye_t(object):
                                  default=self.cfg_db['move_fast_duration_joystick_sec'],
                                  action='store',type=float,
                                  help='Latency of fast eye repositioning in secs')
+        self.parser.add_argument('--auto_restart_joystick_interval_sec',
+                                 default=self.cfg_db['auto_restart_joystick_interval_sec'],
+                                 action='store',type=float,
+                                 help='Latency of automode after joystick idle')
         self.parser.add_argument('--autoblink',
                                  default=self.cfg_db['AUTOBLINK'],
                                  action='store',
@@ -270,6 +274,7 @@ class gecko_eye_t(object):
             'joystick_test' : False, # No test messages from joystick
             'joystick_mode' : 0, # 0: Discrete mode, 1: Continuous mode
             'eye_queue_max' : 1, # maximum depth of eye event queue
+#            'eye_queue_max' : 5, # maximum depth of eye event queue            
             'screenshots' : False, # Enumerates graphics and take screenshots
             'timeout_secs':None, # 1 hour (60 min * 60 sec)
             'eye_orientation': 'right', # Default right eye orientation
@@ -305,7 +310,8 @@ class gecko_eye_t(object):
             
             'blink_duration_joystickmin_sec' : 0.035, # caused by Joystick trigger
             'blink_duration_joystickmax_sec' : 0.06, # caused by Joystick trigger
-            'joystick_service_interval_sec' : 0.20,
+            #'joystick_service_interval_sec' : 0.20,
+            'joystick_service_interval_sec' : 0.0,            
             
             'pupil_auto_expand_sec' : 12.0,
             'pupil_auto_contract_sec' : 4.0,
@@ -325,11 +331,13 @@ class gecko_eye_t(object):
             'hold_duration_min_sec' : 2.1, # original: 0.1
             'hold_duration_max_sec' : 4.0, # original: 1.1
 
-            'move_fast_duration_joystick_sec' : 0.10, # caused by Joystick position
+#            'move_fast_duration_joystick_sec' : 0.10, # caused by Joystick position
+            'move_fast_duration_joystick_sec' : 0.0, # caused by Joystick position            
             'move_slow_duration_joystick_sec' : 0.50, # caused by Joystick position
             'move_scripted_duration_joystick_sec' : 0.10, # caused by Joystick position            
 
-            'auto_restart_interval_sec' : 4.00, # time after last joystick input auto-mode engages
+            'auto_restart_interval_sec' : 4.00, # time after last network msg input auto-mode engages
+            'auto_restart_joystick_interval_sec' : 10.00, # time after last joystick input auto-mode engages            
             'emotion_interval_sec' : 8.0, # Interval between next emotion
 
             'joystick_retry_init_sec' : (2*60), # 5 mins
@@ -449,7 +457,8 @@ class gecko_eye_t(object):
 #            'hack_graphics/gecko spiral eyes_01284.jpg',
 #            'hack_graphics/gecko spiral eyes_01285.jpg',
 #            'hack_graphics/gecko spiral eyes_01286.jpg',
-#        ]        
+#        ]
+
     def switch_eye_context(self,eye_context):
         if eye_context is None:
             return
@@ -1025,13 +1034,26 @@ class gecko_eye_t(object):
             else:
                 eye_look_direction = event[0]
                 eye_movement_rate = event[1]
+                if len(event) > 2:
+                    event_remainder = event[2:]
+                    
                 prev_eye_look_direction = prev_event[0]
                 prev_eye_movement_rate = prev_event[1]
-            
-                if eye_look_direction == prev_eye_look_direction:
+                if len(prev_event) > 2:
+                    prev_event_remainder = prev_event[2:]
+
+                if eye_look_direction in ['eye_goto'] and \
+                   eye_look_direction == prev_eye_look_direction and \
+                   eye_movement_rate in ['fast'] and \
+                   eye_movement_rate == prev_eye_movement_rate and \
+                   event_remainder is not None and \
+                   event_remainder != prev_event_remainder:
+                    prev_event_opt = None
+                    event_opt = event
+                elif eye_look_direction == prev_eye_look_direction:
                     assert('fast' in [eye_movement_rate,prev_eye_movement_rate])
                     prev_event_opt = None
-                    event_opt = (eye_look_direction,'fast')
+                    event_opt = event
                 else:
                     prev_event_opt = None
                     event_opt = event
@@ -1040,18 +1062,24 @@ class gecko_eye_t(object):
                 prev_event_opt = None
                 event_opt = event
 
-        print ('event_opt: {}'.format(event_opt))
+        if self.debug:
+            print ('event_opt: {}'.format(event_opt))
         
         return (prev_event_opt,event_opt)
         
     def opt_eye_event_queue(self):
-        print ('frame_event_queue: {}'.format(self.eye_event_queue))
+        if True:
+            print ('Len(frame_event_queue): {}'.format(len(self.eye_event_queue)))
+            
+        if self.debug:
+            print ('frame_event_queue: {}'.format(self.eye_event_queue))
         events_opt = []
         if len(self.eye_event_queue) > 1:
             #prev_event = self.eye_event_queue[0]
             prev_event = None
             for event in self.eye_event_queue:
-                print ('comparing: {} with {}'.format(prev_event,event))
+                if self.debug:
+                    print ('comparing: {} with {}'.format(prev_event,event))
                 (prev_event_opt,event_opt) = self.check_same_event(prev_event,event)
                 
                 if prev_event_opt is not None:
@@ -1065,8 +1093,9 @@ class gecko_eye_t(object):
                 events_opt.append(prev_event)
         else:
             events_opt = self.eye_event_queue
-        
-        print ('pruned_events: {}'.format(events_opt))
+
+        if self.debug:
+            print ('pruned_events: {}'.format(events_opt))
         
         return events_opt
 
@@ -1096,7 +1125,7 @@ class gecko_eye_t(object):
             self.curX = -30.0 + self.curX * 60.0
             self.curY = -30.0 + self.curY * 60.0
 	else :
-            if self.isMoving == True: # Movement/re-positioning is ongoing
+            if self.isMoving: # Movement/re-positioning is ongoing
                 if dt <= self.moveDuration:
                     scale        = (now_sec - self.move_startTime) / self.moveDuration
                     # Ease in/out curve: 3*t^2-2*t^3
@@ -1125,8 +1154,8 @@ class gecko_eye_t(object):
                 if self.cfg_db['joystick_mode'] not in [1]:
                     self.eye_event_queue = self.opt_eye_event_queue()
                 self.eye_event = self.eye_event_queue.pop(0)
-                #self.eye_event_queue = self.eye_event_queue[1:]
-                #print ('frame event: {}'.format(self.eye_event))
+                if False:
+                    print ('frame event: {}'.format(self.eye_event))
                 
                 if type(self.eye_event) is tuple:
                     eye_look_direction = self.eye_event[0]
@@ -1137,6 +1166,7 @@ class gecko_eye_t(object):
 
                 # Cause eye direction
                 if eye_look_direction in ['eye_goto']:
+                    #print (self.eye_event)
                     x = self.eye_event[2]
                     y = self.eye_event[3]
                     if x is not None:
@@ -1190,6 +1220,7 @@ class gecko_eye_t(object):
                     n = math.sqrt(900.0)
                     self.destY = -n
                 else:
+                    print ('ERROR: Unhandled eye_look_direciton: {}'.format(eye_look_direction))
                     raise
 
                 if eye_movement_rate in ['slow']: 
@@ -1211,16 +1242,18 @@ class gecko_eye_t(object):
                     self.event_moveDuration = None
                 self.move_startTime    = now_sec
                 self.isMoving     = True
+                
                 #self.update_eye_events(reset=True)
             else:
                 auto_eye = False
                 if self.joystick is None:
-                    if now_sec + self.cfg_db['auto_restart_interval_sec'] > \
+                    if now_sec >= self.cfg_db['auto_restart_interval_sec'] + \
                        self.last_eye_comm_recv:
                         auto_eye = True
-                else:
-                    if now_sec + self.cfg_db['auto_restart_interval_sec'] > \
+                else: # joystick is attached
+                    if now_sec >= self.cfg_db['auto_restart_joystick_interval_sec'] + \
                        self.joystick.get_last_joystick_time():
+                        # resume auto-eye animation if joystick has been idle
                         auto_eye = True
 
                 if auto_eye:
@@ -1429,7 +1462,8 @@ class gecko_eye_t(object):
 
         now_sec = time.time()        
         for event in events:
-            #print ('handle_event: {}'.format(event))
+            if False:
+                print ('handle_event: {}'.format(event))
             if type(event) is tuple:
                 self.set_eye_event(event)
             elif type(event) is list:
@@ -1441,7 +1475,7 @@ class gecko_eye_t(object):
             elif event in ['blink']:
                 self.event_blink ^= 1
                 self.event_doBlink = True
-                if self.cfg_db['joystick_mode']  in [1]:
+                if self.cfg_db['joystick_mode'] in [1]:
                     self.isMoving = False
                 self.event_overrideBlinkDurationClose = \
                     random.uniform(self.cfg_db['blink_duration_joystickmin_sec'],
@@ -1457,6 +1491,8 @@ class gecko_eye_t(object):
                 self.eye_context_next = 'cyclops'
             elif event in ['eye_context_12'] and self.cfg_db['demo']:
                 self.eye_context_next = 'hack'
+            elif event in ['eye_goto']:
+                raise
             else:
                 print ('** Unhandled event: {}'.format(event))
                 continue
@@ -1490,7 +1526,9 @@ class gecko_eye_t(object):
                 eye_events.append('eye_southwest')                
             elif event in ['glitter']:
                 eye_events.append('eye_left')
-                eye_events.append('eye_northwest')                
+                eye_events.append('eye_northwest')
+            elif event in ['eye_goto']:
+                raise
             else:
                 print ('** Unmapped wearables event: {}'.format(event))
 
@@ -1537,9 +1575,13 @@ class gecko_eye_t(object):
         if msgs is not None:
             self.last_eye_comm_recv = time.time()
             gecko_events = [msg_rec['effect'] for msg_rec in msgs]
-            print ('eye_comm: recv {}'.format(gecko_events))
+            if self.debug:
+                print ('eye_comm: recv {}'.format(gecko_events))
             #self.sanity_check_comm(gecko_events)
             self.eye_comm_msg_cnt += len(gecko_events)
+            if self.debug:
+                print ('eye_comm_msg_cnt: {}'.format(self.eye_comm_msg_cnt))
+                
             if self.joystick is None:
                 self.handle_events(gecko_events)
             else:
@@ -1560,6 +1602,7 @@ class gecko_eye_t(object):
         if self.cfg_db['joystick_test']:
             gecko_events = self.create_joystick_test_msg()
         elif self.joystick is not None:
+            #print ('DO_JOYSTICK')
             gecko_events = self.joystick.sample_nonblocking()
             self.handle_events(gecko_events)
             eye_event_last = None
@@ -1583,6 +1626,9 @@ class gecko_eye_t(object):
         
         if self.debug:
             print ('joystick_polls: {}'.format(self.joystick_polls))
+
+        return (len(gecko_events) > 0)
+    
 
     def screenshots(self):
 	self.DISPLAY.loop_running()        

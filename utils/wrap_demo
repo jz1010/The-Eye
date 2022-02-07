@@ -2,7 +2,7 @@
 
 #set -euxo pipefail
 
-SB=${SB:-/home/pi/sb_production}
+export SB=${SB:-/home/pi/sb_production}
 
 while true; do
     cd ${SB}

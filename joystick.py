@@ -68,26 +68,38 @@ class joystick_t(object):
             self.twist_mid_lo,
             self.twist_mid_hi,            
             self.twist_range_hi))
-        self.twist_pattern = [('eye_southwest','scripted'),
-                              ('eye_down','scripted'),
-                              ('eye_southeast','scripted'),
-                              ('eye_right','scripted'),                         
-                              ('eye_northeast','scripted'),
-                              ('eye_up','scripted'),                                                  
-                              ('eye_northwest','scripted'),
-                              ('eye_left','scripted'),
-        ]
-
+        
         self.center_pattern = [('eye_center','scripted')]
-        self.twist_pattern_cclockwise = [ \
+        self.twist_pattern_cclockwise  = [('eye_southwest','scripted'),
+                                          ('eye_down','scripted'),
+                                          ('eye_southeast','scripted'),
+                                          ('eye_right','scripted'),                         
+                                          ('eye_northeast','scripted'),
+                                          ('eye_up','scripted'),                                                  
+                                          ('eye_northwest','scripted'),
+                                          ('eye_left','scripted'),
+        ]
+        self.twist_pattern = self.twist_pattern_cclockwise
+        
+        self.eye_pattern_cclockwise = [ \
             self.center_pattern + \
-            self.twist_pattern + \
+            self.twist_pattern_cclockwise + \
             self.center_pattern
         ]
+
+        self.twist_pattern_clockwise  = [('eye_southeast','scripted'),
+                                         ('eye_down','scripted'),
+                                         ('eye_southwest','scripted'),
+                                         ('eye_left','scripted'),
+                                         ('eye_northwest','scripted'),
+                                         ('eye_up','scripted'),                                                  
+                                         ('eye_northeast','scripted'),
+                                         ('eye_right','scripted'),
+        ]
         
-        self.twist_pattern_clockwise = [ \
+        self.eye_pattern_clockwise = [ \
             self.center_pattern + \
-            self.twist_pattern[::-1] + \
+            self.twist_pattern_clockwise + \
             self.center_pattern
         ]
         
@@ -148,12 +160,26 @@ class joystick_t(object):
             event = ('eye_center','slow')                    
             gecko_events.append(event)
         elif button_name in ['3']:
-            if button_val in [0]: # release
+            if button_val in [0]: # release button
                 return gecko_events
+
+            # Add crazy pattern
             crazy_pattern = self.twist_pattern
-            random.shuffle(crazy_pattern)                    
+            random.shuffle(crazy_pattern)
+
+            # Re-center eye at end of crazy
             crazy_pattern += self.center_pattern
             gecko_events += [crazy_pattern]
+        elif button_name in ['5']:
+            if button_val in [0]: # release button
+                return gecko_events
+
+            gecko_events += self.eye_pattern_cclockwise
+        elif button_name in ['6']:
+            if button_val in [0]: # release button
+                return gecko_events
+            
+            gecko_events += self.eye_pattern_clockwise
         elif button_name in ['9']:
             gecko_events.append('eye_context_9')                    
         elif button_name in ['11']:
@@ -216,7 +242,10 @@ class joystick_t(object):
                     gecko_events = self.process_hat(gecko_events,event)
                 else:
                     print ('Analog unhandled event: {}'.format(event))
-            
+
+        if len(gecko_events) > 0:
+            self.last_joystick_event_time = time.time()
+                    
         return gecko_events
     
     def process_discrete(self,gecko_events,events):
