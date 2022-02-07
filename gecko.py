@@ -1599,6 +1599,7 @@ class gecko_eye_t(object):
         
     def do_joystick(self):
         self.init_joystick()
+        gecko_events = []
         if self.cfg_db['joystick_test']:
             gecko_events = self.create_joystick_test_msg()
         elif self.joystick is not None:
