@@ -133,6 +133,10 @@ gzip -c ${F_IMAGE_TRUNC} > ${F_IMAGE_TRUNC_GZ}
 sudo cp ${F_IMAGE_TRUNC_GZ} ${DIRNAME}
 sudo mv ${F_IMAGE_TRUNC_GZ} ${DROPBOX}/Gecko
 
+# Cleanup filesystem
+rm -f ${F_IMAGE_WORK}
+rm -f ${F_IMAGE_TRUNC}
+
 exit 0
 
 # ERROR:  Mount below doesn't succeed
